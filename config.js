@@ -13,12 +13,12 @@ export const APP_VERSION = "2.0.0";
 // Paste the values from your Firebase project here. Until you do, the app runs
 // in "On this device" mode (saved to this browser only). See README.md.
 export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyB6shU_52JreyqeknmtZWj_asYhW4vc5w4",
+  authDomain: "jrlionsrunbook.firebaseapp.com",
+  projectId: "jrlionsrunbook",
+  storageBucket: "jrlionsrunbook.firebasestorage.app",
+  messagingSenderId: "1033685068417",
+  appId: "1:1033685068417:web:a6eafd0e310596651ebb80",
 };
 
 // All board members share ONE workspace so everyone sees the same run book.
