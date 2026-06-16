@@ -248,11 +248,11 @@ function previewTemplate(t) {
 function openListEditor(existing, root) {
   const l = existing ? { ...existing } : { name: "", recipients: [] };
   const fName = input({ value: l.name, placeholder: "e.g. Coaches" });
-  const fRec = textarea({ value: (l.recipients || []).join("\n"), rows: 6, placeholder: "one email per line" });
-  const body = el("div.form-grid", {}, [field("List name", fName), field("Recipients", fRec, "One email address per line")]);
+  const fRec = textarea({ value: (l.recipients || []).join("\n"), rows: 6, placeholder: "one email per line — or separate with commas" });
+  const body = el("div.form-grid", {}, [field("List name", fName), field("Recipients", fRec, "Add as many as you like — one per line, or separated by commas or semicolons")]);
   const save = el("button.btn.primary", { type: "button", text: existing ? "Save list" : "Create list", onclick: async () => {
     if (!fName.value.trim()) { toast("Name the list first", "warn"); return; }
-    const recipients = fRec.value.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+    const recipients = [...new Set(fRec.value.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean))];
     const bad = recipients.filter((r) => !isEmail(r));
     if (bad.length) { toast("Check these addresses: " + bad.slice(0, 2).join(", "), "warn"); return; }
     await Store.upsert("distributionLists", { ...l, name: fName.value.trim(), recipients });
