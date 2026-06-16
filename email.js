@@ -1,16 +1,27 @@
 // =============================================================================
 // email.js — Distribution lists, templates, variables, preview, Outbox
 // -----------------------------------------------------------------------------
-// A static GitHub Pages site can't run a mail server, so a message is "queued"
-// to the Outbox with everything filled in, and a volunteer clicks "Open draft"
-// to hand it to their own email app (mailto). Every message is auditable:
-//   queued  → created by an automation or test, not yet handed off
+// Two ways to send, picked automatically based on configuration:
+//
+//  • AUTOMATIC (recommended) — when EmailJS is configured (config.js
+//    EMAIL_DELIVERY, or Settings → "Automatic email sending"), the app delivers
+//    the message itself, straight from the browser, with no human in the loop.
+//    Automations and due-soon reminders then truly send on their own.
+//
+//  • MANUAL (fallback) — with nothing configured, a static GitHub Pages site
+//    can't run a mail server, so a message is "queued" to the Outbox and a
+//    volunteer clicks "Open draft" to hand it to their own email app (mailto).
+//
+// Every message is auditable by status:
+//   sent    → delivered automatically by EmailJS
+//   queued  → prepared, waiting for someone to open the draft (manual mode)
 //   opened  → a draft was opened in the email app, ready to send
-//   failed  → something went wrong building the message (see the error)
-// To send fully automatically, connect a service (see README → "Real email").
+//   failed  → delivery or validation failed (see the error)
+// Setup steps are in README → "Automatic email (free, no server)".
 // =============================================================================
 
 import { Store } from "./firestore.js";
+import { EMAIL_DELIVERY } from "./config.js";
 import {
   el, clear, field, input, textarea, select, toast, openModal, closeModal,
   confirmDialog, fmtDateTime, isEmail, uid,
@@ -55,6 +66,47 @@ export const Email = {
       `?subject=${encodeURIComponent(subject || "")}&body=${encodeURIComponent(body || "")}`;
   },
 
+  // Effective delivery config: an in-app override (Settings) wins over config.js.
+  deliveryConfig() {
+    const inApp = Store.meta().emailDelivery;
+    const cfg = (inApp && inApp.provider) ? inApp : EMAIL_DELIVERY;
+    return cfg || { provider: "none" };
+  },
+
+  // True when the app can send on its own (no human "Open draft" needed).
+  deliveryEnabled() {
+    const cfg = this.deliveryConfig();
+    if (cfg.provider !== "emailjs") return false;
+    const e = cfg.emailjs || {};
+    return Boolean(e.publicKey && e.serviceId && e.templateId);
+  },
+
+  // Hand the message to EmailJS for real delivery. Throws on failure.
+  async deliver(to, subject, body) {
+    const cfg = this.deliveryConfig();
+    if (cfg.provider !== "emailjs") throw new Error("No email provider configured");
+    const e = cfg.emailjs || {};
+    const params = {
+      [e.toParam || "to_email"]: (to || []).join(", "),
+      [e.subjectParam || "subject"]: subject || "",
+      [e.bodyParam || "message"]: body || "",
+      from_name: e.fromName || "Jr Lions Lacrosse Run Book",
+    };
+    const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service_id: e.serviceId, template_id: e.templateId, user_id: e.publicKey,
+        template_params: params,
+      }),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`EmailJS ${res.status} ${res.statusText}${detail ? " — " + detail : ""}`);
+    }
+    return true;
+  },
+
   async record({ to, subject, body, source = "Manual", status = "queued", error = "" }) {
     return Store.upsert("events", {
       id: uid("eml"), type: "email", to, subject, body, source, status, error,
@@ -62,8 +114,12 @@ export const Email = {
     });
   },
 
-  // Queue (and optionally open) a message. Returns { ok, status, message }.
-  async send({ to, subject, body, source, open = false }) {
+  // Send a message. Behavior:
+  //   • deliver "never"  → only queue, or open a mailto draft (when open=true)
+  //   • deliver "auto"   → if a provider is configured, deliver automatically;
+  //                        otherwise fall back to the manual queue/draft path.
+  // Returns { ok, status, message }.
+  async send({ to, subject, body, source, open = false, deliver = "auto" }) {
     const invalid = (to || []).filter((r) => !isEmail(r));
     if (!to || !to.length) {
       await this.record({ to: to || [], subject, body, source, status: "failed", error: "No recipients" });
@@ -73,6 +129,22 @@ export const Email = {
       await this.record({ to, subject, body, source, status: "failed", error: "Invalid address: " + invalid.join(", ") });
       return { ok: false, status: "failed", message: "Invalid address: " + invalid.join(", ") };
     }
+
+    // Automatic delivery, when configured and not explicitly suppressed.
+    if (deliver !== "never" && this.deliveryEnabled()) {
+      try {
+        await this.deliver(to, subject, body);
+        await this.record({ to, subject, body, source, status: "sent" });
+        return { ok: true, status: "sent", message: `Sent to ${to.length} recipient(s)` };
+      } catch (e) {
+        // Record the failure but keep the message in the Outbox so a volunteer
+        // can still open a draft and send it by hand.
+        await this.record({ to, subject, body, source, status: "failed", error: String(e.message || e) });
+        return { ok: false, status: "failed", message: "Automatic send failed: " + String(e.message || e) };
+      }
+    }
+
+    // Manual path: queue to the Outbox, optionally opening a mailto draft.
     const status = open ? "opened" : "queued";
     await this.record({ to, subject, body, source, status });
     if (open) window.open(this.mailto(to, subject, body), "_blank");
@@ -101,6 +173,15 @@ export function renderEmail(root) {
       el("p.page-sub", { text: "Distribution lists, message templates, and a record of every message." }),
     ]),
     el("button.btn.primary", { type: "button", html: "✉ Compose message", onclick: () => openCompose(root) }),
+  ]));
+
+  // ---- Delivery status banner ----------------------------------------------
+  const live = Email.deliveryEnabled();
+  root.appendChild(el("div.callout" + (live ? ".ok" : ".warn"), {}, [
+    el("strong", { text: live ? "Automatic sending is ON. " : "Automatic sending is OFF. " }),
+    el("span", { text: live
+      ? "Messages and automations send on their own via EmailJS — no draft step needed."
+      : "Messages are prepared as drafts you open and send by hand. To send automatically, set up EmailJS — see Settings → “Automatic email sending” or the README." }),
   ]));
 
   // ---- Distribution lists ---------------------------------------------------
@@ -182,7 +263,7 @@ export function renderEmail(root) {
 }
 
 function statusPill(status) {
-  const map = { queued: ["Queued", "warn"], opened: ["Opened", "ok"], failed: ["Failed", "danger"] };
+  const map = { sent: ["Sent", "ok"], queued: ["Queued", "warn"], opened: ["Opened", "ok"], failed: ["Failed", "danger"] };
   const [label, kind] = map[status] || ["Queued", "warn"];
   return el("span.count-pill." + kind, { text: label });
 }
@@ -211,27 +292,41 @@ function openCompose(root, preset = {}) {
   tplSel.addEventListener("change", applyTemplate);
   if (preset.template) applyTemplate();
 
+  const live = Email.deliveryEnabled();
   const body = el("div.form-grid", {}, [
     field("Send to lists", listBox),
     field("Individual recipients", extra),
     field("Start from template", tplSel),
     field("Subject", subject),
     field("Body", bodyTa),
-    el("p.muted.small", { text: "“Queue” logs it to the Outbox. “Open draft” also hands it to your email app to send." }),
+    el("p.muted.small", { text: live
+      ? "“Send now” delivers automatically via EmailJS. “Draft instead” opens your own email app."
+      : "“Queue” logs it to the Outbox. “Open draft” also hands it to your email app to send." }),
   ]);
 
-  const queueBtn = el("button.btn", { type: "button", text: "Queue", onclick: () => doSend(false) });
-  const openBtn = el("button.btn.primary", { type: "button", text: "Open draft & log", onclick: () => doSend(true) });
-  async function doSend(open) {
+  // doSend(open, deliver): open=true opens a mailto draft; deliver="never"
+  // forces the manual path even when automatic sending is configured.
+  async function doSend(open, deliver = "auto") {
     const to = Email.resolveRecipients([...chosen], extra.value);
     if (!to.length) { toast("Add at least one recipient or list", "warn"); return; }
-    const r = await Email.send({ to, subject: subject.value, body: bodyTa.value, source: "Compose", open });
+    const r = await Email.send({ to, subject: subject.value, body: bodyTa.value, source: "Compose", open, deliver });
     closeModal();
     toast(r.message, r.ok ? "ok" : "warn");
     renderEmail(root);
   }
-  openModal({ title: "Compose message", body,
-    footer: [el("button.btn.ghost", { type: "button", text: "Cancel", onclick: () => closeModal() }), queueBtn, openBtn], width: 620 });
+
+  const footer = live
+    ? [
+        el("button.btn.ghost", { type: "button", text: "Cancel", onclick: () => closeModal() }),
+        el("button.btn", { type: "button", text: "Draft instead", onclick: () => doSend(true, "never") }),
+        el("button.btn.primary", { type: "button", text: "Send now", onclick: () => doSend(false, "auto") }),
+      ]
+    : [
+        el("button.btn.ghost", { type: "button", text: "Cancel", onclick: () => closeModal() }),
+        el("button.btn", { type: "button", text: "Queue", onclick: () => doSend(false, "never") }),
+        el("button.btn.primary", { type: "button", text: "Open draft & log", onclick: () => doSend(true, "never") }),
+      ];
+  openModal({ title: "Compose message", body, footer, width: 620 });
 }
 
 function previewTemplate(t) {

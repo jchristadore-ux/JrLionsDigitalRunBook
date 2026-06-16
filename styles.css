@@ -346,6 +346,12 @@ select.control { cursor: pointer; }
   display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; border: 1px solid var(--line); background: var(--surface); }
 .attention.live { border-left: 4px solid var(--red); }
 .attention.calm { border-left: 4px solid var(--teal); }
+
+/* Inline callout (e.g. email delivery status) */
+.callout { border-radius: var(--radius); padding: .8rem 1rem; margin-bottom: 1rem;
+  border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); line-height: 1.45; }
+.callout.ok { border-left: 4px solid var(--teal); }
+.callout.warn { border-left: 4px solid var(--amber, #b8860b); }
 .attn-main strong { font-family: "Space Grotesk", sans-serif; font-size: 1.05rem; }
 .attn-pills { display: flex; gap: .5rem; flex-wrap: wrap; margin-left: auto; }
 .attn-pill { cursor: pointer; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink);
