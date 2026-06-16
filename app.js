@@ -423,6 +423,9 @@ function renderSettings(root) {
   ]));
   root.appendChild(dCard);
 
+  // Automatic email sending (EmailJS)
+  root.appendChild(emailDeliveryCard());
+
   // Connection
   const cCard = el("section.card.block");
   cCard.appendChild(el("h2", { text: "Connection" }));
@@ -433,6 +436,63 @@ function renderSettings(root) {
     ? "Everyone signed in to this workspace sees the same data in real time."
     : "To sync across phones and computers, add your Firebase keys in <code>config.js</code>. See the README for step-by-step setup." }));
   root.appendChild(cCard);
+}
+
+// Settings card for turning on automatic email delivery via EmailJS (free).
+// Stored in the shared workspace meta, so once an admin sets it everyone's
+// run book — including automations — can send on its own.
+function emailDeliveryCard() {
+  const card = el("section.card.block");
+  const cfg = Store.meta().emailDelivery || { provider: "none", emailjs: {} };
+  const e = cfg.emailjs || {};
+  const live = Email.deliveryEnabled();
+
+  card.appendChild(el("h2", { text: "Automatic email sending" }));
+  card.appendChild(el("div.conn-row", {}, [
+    el("span.mode-badge" + (live ? ".cloud" : ".local"), { text: live ? "ON — the app sends email by itself" : "OFF — emails open as drafts you send" }),
+  ]));
+  card.appendChild(el("p.muted.small", { html:
+    "Connect <strong>EmailJS</strong> (free, 200 emails/month) so the run book — and its automations — send email on their own, with no draft step. " +
+    "Create a free account, add an email service and one template, then paste the three IDs below. Full walkthrough is in the README → “Automatic email”." }));
+
+  const onParam = input({ value: e.publicKey || "", placeholder: "Public Key (Account → General)" });
+  const onSvc = input({ value: e.serviceId || "", placeholder: "Service ID (Email Services)" });
+  const onTpl = input({ value: e.templateId || "", placeholder: "Template ID (Email Templates)" });
+  const onFrom = input({ value: e.fromName || "Jr Lions Lacrosse Run Book", placeholder: "From name shown to recipients" });
+
+  card.appendChild(el("div.form-grid", {}, [
+    field("Public Key", onParam),
+    field("Service ID", onSvc),
+    field("Template ID", onTpl),
+    field("From name", onFrom),
+    el("p.muted.small", { text: "Your EmailJS template must use the variables to_email, subject, and message. The README shows exactly what to paste." }),
+  ]));
+
+  card.appendChild(el("div.btn-row", {}, [
+    el("button.btn.primary", { type: "button", text: "Save & turn on", onclick: async () => {
+      const pub = onParam.value.trim(), svc = onSvc.value.trim(), tpl = onTpl.value.trim();
+      if (!pub || !svc || !tpl) { toast("Fill in all three IDs to turn on sending", "warn"); return; }
+      await Store.setMeta({ emailDelivery: {
+        provider: "emailjs",
+        emailjs: { publicKey: pub, serviceId: svc, templateId: tpl, fromName: onFrom.value.trim() || "Jr Lions Lacrosse Run Book",
+          toParam: "to_email", subjectParam: "subject", bodyParam: "message" },
+      } });
+      toast("Automatic sending is on"); renderActive();
+    } }),
+    el("button.btn", { type: "button", text: "Send test email", onclick: async () => {
+      if (!Email.deliveryEnabled()) { toast("Save your EmailJS settings first", "warn"); return; }
+      const to = prompt("Send a test email to which address?", "");
+      if (!to) return;
+      const r = await Email.send({ to: [to.trim()], subject: "Jr Lions Run Book — test email",
+        body: "This is a test from the Jr Lions Lacrosse Run Book. If you received it, automatic sending works! 🦁", source: "Settings test" });
+      toast(r.message, r.ok ? "ok" : "warn");
+    } }),
+    el("button.btn.danger", { type: "button", text: "Turn off", onclick: async () => {
+      await Store.setMeta({ emailDelivery: { provider: "none", emailjs: {} } });
+      toast("Automatic sending turned off — emails will open as drafts"); renderActive();
+    } }),
+  ]));
+  return card;
 }
 
 function chipEditor(label, key) {

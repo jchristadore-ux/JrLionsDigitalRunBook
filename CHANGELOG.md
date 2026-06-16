@@ -5,6 +5,27 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **Automatic email sending (free, no server).** The run book can now deliver
+  email by itself via [EmailJS](https://www.emailjs.com/) (free tier:
+  200 emails/month, sent straight from the browser — no backend). When connected,
+  Compose gains a **Send now** button and automations/due-soon reminders truly
+  send on their own; delivered messages show a green **Sent** pill in the Outbox.
+  Without it, the app falls back to the previous manual `mailto:` draft behavior.
+- **In-app setup.** New **Settings → "Automatic email sending"** panel to paste
+  the EmailJS Public Key, Service ID, and Template ID, send a test email, and turn
+  delivery on/off. Settings sync to the whole workspace. Can alternatively be set
+  in `config.js` (`EMAIL_DELIVERY`).
+- **Email delivery status banner** on the Email tab showing whether automatic
+  sending is on or off.
+- **README → "Automatic email (free, no server)"** with step-by-step EmailJS setup
+  (account, Gmail service, the one template to create, security, and turning it on).
+
+---
+
 ## [2.0.0] — 2026-06-16
 
 Major release following a full pre-production teardown audit. The application

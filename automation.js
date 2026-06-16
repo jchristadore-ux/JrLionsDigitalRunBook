@@ -281,7 +281,7 @@ function automationCard(a, root) {
     card.appendChild(el("div.auto-error", { text: "Last error: " + last.error }));
   }
   card.appendChild(el("div.auto-actions", {}, [
-    el("button.btn.ghost.sm", { type: "button", title: "Run safely now (emails go to the Outbox as drafts)", text: "▶ Run now", onclick: async () => {
+    el("button.btn.ghost.sm", { type: "button", title: "Run now (sends automatically if EmailJS is on, otherwise queues drafts to the Outbox)", text: "▶ Run now", onclick: async () => {
       const n = await Automation.runNow(a); toast(n ? `Ran ${n} action(s)` : "Nothing matched", n ? "ok" : "warn"); renderAutomations(root);
     } }),
     el("button.btn.ghost.sm", { type: "button", text: "History", onclick: () => openHistory(a) }),

@@ -157,6 +157,8 @@ export const Store = {
       priorities: m.priorities || [...DEFAULTS.priorities],
       dashboardWidgets: { ...DEFAULTS.dashboardWidgets, ...(m.dashboardWidgets || {}) },
       triggers: m.triggers || ["Registration Opens", "Season Kickoff", "Tryouts Open"],
+      // In-app override for automatic email sending (see config.js EMAIL_DELIVERY).
+      emailDelivery: m.emailDelivery || null,
     };
   },
 

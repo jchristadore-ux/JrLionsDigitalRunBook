@@ -28,6 +28,32 @@ export const WORKSPACE_ID = "default";
 // Require Google sign-in before the app loads (recommended once Firebase is on).
 export const REQUIRE_SIGN_IN = true;
 
+// ---- 1b) AUTOMATIC EMAIL SENDING (EmailJS) ----------------------------------
+// A static website has no mail server, so by default the app prepares a draft in
+// your own mail app (mailto) and you press send. To let the run book SEND email
+// on its own — including from automations and reminders — connect EmailJS, a
+// free service (200 emails/month) that delivers straight from the browser.
+//
+// Fill these three values in (or set them in the app under Settings →
+// "Automatic email sending", which overrides what's here). Leave provider as
+// "none" to keep the manual draft behavior. Full step-by-step setup, including
+// the one EmailJS template you must create, is in README → "Automatic email".
+export const EMAIL_DELIVERY = {
+  provider: "none", // "none" = manual drafts · "emailjs" = send automatically
+  emailjs: {
+    publicKey:  "", // EmailJS → Account → General → Public Key
+    serviceId:  "", // EmailJS → Email Services → your service's ID
+    templateId: "", // EmailJS → Email Templates → your template's ID
+    fromName:   "Jr Lions Lacrosse Run Book",
+    // These must match the variable names used in your EmailJS template.
+    // The defaults below match the template shown in the README — only change
+    // them if you named your template variables differently.
+    toParam:      "to_email",
+    subjectParam: "subject",
+    bodyParam:    "message",
+  },
+};
+
 // Never include real passwords in downloaded backup files by default. Volunteers
 // are encouraged to store a LOCATION ("1Password → Team Store") instead of the
 // secret itself. See README → Security.

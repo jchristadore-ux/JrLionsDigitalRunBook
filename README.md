@@ -21,6 +21,7 @@ install**, no spreadsheet to email around, and no code to touch for everyday use
 - [Editing tasks](#editing-tasks)
 - [Automations](#automations)
 - [Email](#email)
+- [Automatic email (free, no server)](#automatic-email-free-no-server)
 - [Managing volunteers (owners)](#managing-volunteers-owners)
 - [Backup and recovery](#backup-and-recovery)
 - [Security and credentials](#security-and-credentials)
@@ -247,16 +248,103 @@ Open the **Email** tab. It holds:
 - **Distribution lists** — named groups of recipients (e.g. "All Coaches").
 - **Templates** — reusable messages with `{{placeholders}}` that get filled in.
 - **Outbox** — a record of every message the app has prepared, with a status pill
-  (queued / opened / failed).
+  (sent / queued / opened / failed).
 
-> **Important — how "sending" works.** This is a static website, which cannot
-> send email on its own. When you "send," the app validates the message, opens a
-> **pre-filled draft in your normal mail program** (via `mailto:`), and logs it to
-> the Outbox. You press send in your mail app. True automatic/scheduled sending
-> would require a small server component — see
-> [Future enhancements](#future-enhancements).
+The app can send email in **two modes**:
 
-Use **Preview** before sending to check recipients and the filled-in template.
+- **Automatic (recommended).** Once you connect **EmailJS** (free — see
+  [Automatic email](#automatic-email-free-no-server) below), the run book delivers
+  messages itself, straight from the browser. Compose shows a **Send now** button,
+  and automations and due-soon reminders **truly send on their own** — no human
+  draft step. Delivered messages show a green **Sent** pill in the Outbox.
+- **Manual (default until you connect EmailJS).** Because a plain static website
+  has no mail server, "sending" instead opens a **pre-filled draft in your normal
+  mail program** (via `mailto:`) that you press send on, and logs it to the Outbox.
+
+The Email tab shows a banner telling you which mode is active. Use **Preview**
+before sending to check recipients and the filled-in template.
+
+---
+
+## Automatic email (free, no server)
+
+The run book sends real email through **[EmailJS](https://www.emailjs.com/)** — a
+free service that delivers mail directly from the browser, so no server, hosting,
+or credit card is required. The **free plan includes 200 emails per month**, which
+is plenty for a youth-sports board's reminders and announcements.
+
+You set this up **once**. After that, every board member's run book — and every
+automation — sends on its own.
+
+### Step 1 — Create a free EmailJS account
+1. Go to **https://www.emailjs.com/** and click **Sign Up** (free, no card).
+2. Verify your email and sign in to the **EmailJS dashboard**.
+
+### Step 2 — Connect an email service (who the mail is sent from)
+1. In the dashboard, open **Email Services → Add New Service**.
+2. Choose **Gmail** (recommended — use `jrlionslax44@gmail.com`) or any provider
+   listed, and follow the prompts to connect/authorize the account. Gmail just
+   asks you to sign in and click **Allow**.
+3. When it's connected, copy its **Service ID** (looks like `service_xxxxxxx`).
+
+### Step 3 — Create the message template
+1. Open **Email Templates → Create New Template**.
+2. Set the template fields to use these **exact variable names** (type the double
+   braces yourself):
+   - **To Email:** `{{to_email}}`
+   - **From Name:** `{{from_name}}`
+   - **Subject:** `{{subject}}`
+   - **Content / Body:** `{{message}}`
+3. Click **Save**, then copy the **Template ID** (looks like `template_xxxxxxx`).
+
+   > The run book already fills in the recipients, subject, and body from your own
+   > lists and templates — this single EmailJS template is just the "envelope" it
+   > travels in, so you only ever need **one**.
+
+### Step 4 — Copy your Public Key
+1. Open **Account → General** (sometimes shown as **API Keys**).
+2. Copy your **Public Key** (a short string like `A1bC2dE3...`).
+
+### Step 5 — Allow your site to send (security)
+1. In **Account → Security**, keep **"Use Private Key"** turned **off** (the run
+   book sends from the browser with the Public Key only).
+2. If an **Allowed Origins / domains** box is shown, add the address where the run
+   book is hosted, e.g. `https://YOURNAME.github.io` (and `http://localhost:8000`
+   if you test locally). Leaving it blank also works but is less secure.
+
+### Step 6 — Turn it on in the run book
+You have two equivalent options:
+
+- **In the app (easiest, no redeploy):** open **Settings → "Automatic email
+  sending"**, paste your **Public Key**, **Service ID**, and **Template ID**, then
+  click **Save & turn on**. Click **Send test email** to confirm it works. These
+  settings sync to everyone in the shared workspace.
+- **In code (`config.js`):** set `EMAIL_DELIVERY.provider` to `"emailjs"` and fill
+  in `publicKey`, `serviceId`, and `templateId` under `emailjs`. Commit and deploy.
+
+That's it. The Email tab banner will switch to **"Automatic sending is ON,"**
+Compose gains a **Send now** button, and your due-soon/overdue/created-task
+automations now deliver email by themselves.
+
+### Good to know
+- **All third-party pieces are free.** EmailJS free tier = 200 emails/month; Gmail
+  is free. No paid plan, server, or card needed.
+- **The Public Key, Service ID, and Template ID are not secrets** — they're meant
+  to live in front-end code, which is why this works on a static site. Do **not**
+  enable EmailJS's *private* key here.
+- **Volume:** if you ever exceed 200 emails/month, EmailJS has low-cost upgrades,
+  or you can prefer one big distribution list over many individual sends.
+- **Scheduling caveat:** "due soon" / "overdue" reminders run when someone opens
+  the app (once per task per day). For sends that fire even with no browser open,
+  you'd add a tiny scheduled function later — see
+  [Future enhancements](#future-enhancements). Event- and change-based
+  automations send immediately when they're triggered.
+
+### Prefer Gmail's own tools instead?
+If you'd rather not use EmailJS, the same free Gmail account can do recurring
+sends with **Google Apps Script** (a free `MailApp.sendEmail` script on a time
+trigger). That lives outside this app, so EmailJS is the recommended, in-app
+route. Ask if you'd like a ready-made Apps Script.
 
 ---
 
@@ -373,8 +461,14 @@ console for permission errors.
 Set **Settings → Who are you?** on that device.
 
 **An automation didn't send email.**
-By design — see [Email](#email). "Run now" queues drafts to the Outbox for safe
-testing; real sending opens your mail program.
+First check the Email tab banner. If it says **"Automatic sending is OFF,"** the
+app is in manual mode and only prepares drafts — set up
+[Automatic email](#automatic-email-free-no-server) to send for real. If it says
+**ON** but a message shows a red **Failed** pill, open the Outbox row to read the
+error (common causes: a wrong EmailJS ID, a template missing the `to_email` /
+`subject` / `message` variables, your site's domain not in EmailJS **Allowed
+Origins**, or the 200/month free limit reached). Fix it and use **Settings → Send
+test email** to confirm.
 
 **I made a mistake.**
 Most actions show an **Undo** toast. For larger problems, **Import** your most
@@ -384,12 +478,14 @@ recent export, or **Reset to seed** to start clean.
 
 ## Future enhancements
 
-These need a small server component (e.g. Firebase Cloud Functions) and are out
-of scope for a pure static site, but are natural next steps:
+**Real outbound email is already supported** — connect EmailJS for free; see
+[Automatic email](#automatic-email-free-no-server). The items below still need a
+small server component (e.g. Firebase Cloud Functions) and are out of scope for a
+pure static site, but are natural next steps:
 
-- **Real outbound email** — send automatically instead of opening a draft.
-- **True scheduling and retries** — fire automations on a clock and retry on
-  failure without anyone's browser being open.
+- **True scheduling and retries** — fire time-based reminders on a clock and retry
+  on failure without anyone's browser being open. (Today, due-soon/overdue
+  reminders run when the app is opened; event-based automations send instantly.)
 - **Per-user accounts and roles** — finer access control than the single shared
   workspace.
 - **File attachments** — store actual documents rather than links.
