@@ -26,7 +26,7 @@ export const firebaseConfig = {
 export const WORKSPACE_ID = "default";
 
 // Require Google sign-in before the app loads (recommended once Firebase is on).
-export const REQUIRE_SIGN_IN = false;
+export const REQUIRE_SIGN_IN = true;
 
 // Never include real passwords in downloaded backup files by default. Volunteers
 // are encouraged to store a LOCATION ("1Password → Team Store") instead of the
