@@ -209,7 +209,15 @@ export function field(label, control, hint) {
   ]);
 }
 export function input(attrs = {}) { return el("input.control", { type: "text", ...attrs }); }
-export function textarea(attrs = {}) { return el("textarea.control", { rows: 3, ...attrs }); }
+export function textarea(attrs = {}) {
+  // A <textarea>'s text comes from its content/`.value` property, not a `value`
+  // attribute — so pull `value` out and assign it directly, otherwise existing
+  // text (e.g. when editing a saved list) never shows up in the field.
+  const { value, ...rest } = attrs;
+  const node = el("textarea.control", { rows: 3, ...rest });
+  if (value != null) node.value = value;
+  return node;
+}
 export function select(options, value, attrs = {}) {
   const s = el("select.control", attrs);
   for (const o of options) {
