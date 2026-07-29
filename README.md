@@ -18,6 +18,7 @@ install**, no spreadsheet to email around, and no code to touch for everyday use
 - [Deploying to GitHub Pages](#deploying-to-github-pages)
 - [Key features](#key-features)
 - [The dashboard](#the-dashboard)
+- [Sorting and filtering the task list](#sorting-and-filtering-the-task-list)
 - [Editing tasks](#editing-tasks)
 - [Automations](#automations)
 - [Email](#email)
@@ -156,6 +157,8 @@ compile — GitHub serves the files as-is.
 
 - **Executive dashboard** with 12 toggleable summary widgets.
 - **Full task editor** covering ~25 fields, grouped into plain-language sections.
+- **Sortable task list** — due date by default, or one click to sort by priority,
+  status, owner, category, name, or your own drag-and-drop order.
 - **Recurring tasks** that carry over on their own — each job stays one row and
   simply rolls to next season's date once its date has passed.
 - **Dependencies** — a task waiting on another shows as **Blocked** until the
@@ -191,6 +194,30 @@ widget can be turned on or off in **Settings → Dashboard widgets**:
 
 ---
 
+## Sorting and filtering the task list
+
+The **Tasks** tab opens sorted by **due date, soonest first** — the run book is
+a calendar first, so what's next is always at the top.
+
+The **Sort by** buttons above the list change that at any time: **Due date**,
+**Priority**, **Status**, **Owner**, **Category**, **Name**, or **Manual**.
+Click the button you're already on to reverse it (the arrow flips ↑/↓), and
+**Reset** puts you back to due date. Your choice is remembered on that device.
+
+- Tasks with nothing to sort on — no due date, no owner — always sit at the
+  bottom, whichever direction you sort, so reversing never buries the real work
+  under blanks.
+- **Status** sorts by what needs attention: overdue, then blocked, in progress,
+  waiting, not started, and completed last.
+- **Manual** is the drag-and-drop order. Drag handles (⠿) only appear on this
+  setting — under any other sort the list would just snap back.
+
+The dropdowns above the buttons filter the list (category, owner, program,
+priority, status, and whether to show archived tasks); sorting applies to
+whatever is left. The count under the page title tells you both, e.g.
+"12 of 39 shown · due date, soonest first".
+
+---
 ## Editing tasks
 
 Open the **Tasks** tab, then click any task to open the editor. Fields are
