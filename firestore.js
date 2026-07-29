@@ -29,6 +29,9 @@ const COLLECTIONS = ["tasks", "automations", "distributionLists", "emailTemplate
 const CACHE_KEY = "jrlions_runbook_cache_v2";
 const ACTIVITY_CAP = 250;
 const RUNLOG_CAP = 300;
+// How long to wait for Firestore's first snapshot before giving up on it.
+// Generous on purpose: seeding is skipped entirely if it never lands.
+const FIRST_SNAPSHOT_TIMEOUT_MS = 8000;
 
 // Canonical task shape — every task is normalized to these fields so the UI can
 // rely on them existing. (Phase 2: normalization.)
@@ -53,12 +56,69 @@ function normalizeTask(t) {
   return out;
 }
 
+// ---- stable identity --------------------------------------------------------
+// A task is one job in the run book, and the same job must never occupy two
+// rows. Title + program is that identity: it gives seeded records deterministic
+// document IDs (so re-running the seed overwrites instead of copying) and lets
+// us collapse duplicates that earlier builds left behind.
+function taskKey(title, program) {
+  const t = String(title || "").trim().toUpperCase().replace(/\s+/g, " ");
+  const p = String(program || "ALL").trim().toUpperCase();
+  return `${t}::${p}`;
+}
+function slugify(text, max = 80) {
+  return String(text).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, max);
+}
+function seedTaskId(title, program) { return `seed_${slugify(taskKey(title, program))}`; }
+function seedId(prefix, name) { return `${prefix}_${slugify(name)}`; }
+
+function isEmptyValue(v) {
+  return v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
+}
+function filledFields(t) {
+  return Object.keys(TASK_FIELDS).filter((k) => !isEmptyValue(t[k])).length;
+}
+// Which of several duplicate rows survives: a live row over an archived one, a
+// stable seeded ID over a random one, the most filled-in record, then the
+// oldest. Fully deterministic, so two devices deduping at once agree.
+function compareForKeep(a, b) {
+  const archived = (x) => (x.archived ? 1 : 0);
+  const seeded = (x) => (String(x.id).startsWith("seed_") ? 0 : 1);
+  return archived(a) - archived(b)
+    || seeded(a) - seeded(b)
+    || filledFields(b) - filledFields(a)
+    || String(a.createdAt || "").localeCompare(String(b.createdAt || ""))
+    || String(a.id).localeCompare(String(b.id));
+}
+// Fold the copies into the survivor so no detail anyone typed is lost.
+function mergeDuplicates(ranked) {
+  const keeper = { ...ranked[0] };
+  for (const other of ranked.slice(1)) {
+    for (const [key, def] of Object.entries(TASK_FIELDS)) {
+      if (Array.isArray(def)) {
+        const union = [...new Set([...(keeper[key] || []), ...(other[key] || [])])];
+        if (union.length) keeper[key] = union;
+      } else if (isEmptyValue(keeper[key]) && !isEmptyValue(other[key])) {
+        keeper[key] = other[key];
+      }
+    }
+    // The job counts as done if any copy was ticked off, and the run book keeps
+    // the soonest date any copy was carrying.
+    if (other.status === "Completed") keeper.status = "Completed";
+    if (other.dueDate && (!keeper.dueDate || other.dueDate < keeper.dueDate)) keeper.dueDate = other.dueDate;
+  }
+  return normalizeTask(keeper);
+}
+
 export const Store = {
   mode: isConfigured ? "cloud" : "local",
   ready: false,
   state: { tasks: {}, automations: {}, distributionLists: {}, emailTemplates: {}, events: {}, meta: {} },
   _subs: new Set(),
   _unsubs: [],
+  // Collections whose first cloud snapshot has actually arrived. Until one is
+  // in here, "empty" means "we haven't heard back yet" — never "seed me".
+  _seen: new Set(),
 
   subscribe(fn) { this._subs.add(fn); return () => this._subs.delete(fn); },
   _emit() { for (const fn of this._subs) { try { fn(); } catch (e) { console.error(e); } } },
@@ -92,24 +152,38 @@ export const Store = {
   },
 
   async _attachCloud() {
+    const settled = [];
     for (const coll of COLLECTIONS) {
+      let done;
+      settled.push(new Promise((r) => (done = r)));
       const unsub = onSnapshot(collection(db, pathFor(coll)), (snap) => {
         const map = {};
         snap.forEach((d) => { map[d.id] = { id: d.id, ...d.data() }; });
         this.state[coll] = map;
+        this._seen.add(coll);
         this._saveCache();
         this._emit();
-      }, (err) => console.error(`Listener error (${coll})`, err));
+        done();
+      }, (err) => { console.error(`Listener error (${coll})`, err); done(); });
       this._unsubs.push(unsub);
     }
+    let metaDone;
+    settled.push(new Promise((r) => (metaDone = r)));
     const unsubMeta = onSnapshot(metaDoc(), (d) => {
       this.state.meta = d.exists() ? d.data() : {};
       this._ensureMetaDefaults();
       this._saveCache();
       this._emit();
-    }, (err) => console.error("Meta listener error", err));
+      metaDone();
+    }, (err) => { console.error("Meta listener error", err); metaDone(); });
     this._unsubs.push(unsubMeta);
-    await new Promise((r) => setTimeout(r, 600));
+    // Wait for the real first snapshot, not a fixed guess. Booting on a slow
+    // connection used to leave every collection looking empty, which seeded a
+    // second (and third) copy of the whole run book.
+    await Promise.race([
+      Promise.all(settled),
+      new Promise((r) => setTimeout(r, FIRST_SNAPSHOT_TIMEOUT_MS)),
+    ]);
   },
 
   // ---- writes ---------------------------------------------------------------
@@ -150,6 +224,7 @@ export const Store = {
   _ensureMetaDefaults() {
     const m = this.state.meta || {};
     this.state.meta = {
+      ...m, // keep anything not listed below (e.g. seededAt)
       categories: m.categories || [...DEFAULTS.categories],
       programs: m.programs || [...DEFAULTS.programs],
       owners: m.owners || [...DEFAULTS.owners],
@@ -198,12 +273,23 @@ export const Store = {
 
   // ---- seeding --------------------------------------------------------------
   async _seedIfEmpty() {
-    if (Object.keys(this.state.tasks || {}).length === 0) {
+    // Only seed a collection we know is genuinely empty. In cloud mode that
+    // means its first snapshot has landed; anything else is a guess, and a
+    // wrong guess plants a duplicate copy of the run book.
+    const empty = (coll) =>
+      (this.mode !== "cloud" || this._seen.has(coll)) &&
+      Object.keys(this.state[coll] || {}).length === 0;
+
+    // seededAt records that this workspace has been through the seed once, so
+    // a run book someone deliberately emptied stays empty.
+    if (empty("tasks") && !(this.state.meta || {}).seededAt) {
       let order = 0;
       for (const t of SEED_TASKS) {
         const due = monthDayToISO(t.month, t.date);
         await this.upsert("tasks", normalizeTask({
-          id: uid("tsk"), title: t.task, category: t.category || "",
+          // Deterministic ID: a second seeding pass overwrites the same
+          // document instead of creating a parallel row.
+          id: seedTaskId(t.task, t.program), title: t.task, category: t.category || "",
           program: t.program || "ALL", owner: t.owner || "ALL",
           status: "Not Started", priority: "Medium", dueDate: due,
           recurrence: due ? "yearly" : "none",
@@ -213,28 +299,36 @@ export const Store = {
           order: order++, createdAt: new Date().toISOString(),
         }));
       }
+      await this.setMeta({ seededAt: new Date().toISOString() });
     }
     // Reseed support collections independently so a wiped list can recover.
-    if (Object.keys(this.state.distributionLists || {}).length === 0)
-      for (const l of SEED_DISTRIBUTION_LISTS) await this.upsert("distributionLists", { id: uid("lst"), ...l });
-    if (Object.keys(this.state.emailTemplates || {}).length === 0)
-      for (const tpl of SEED_EMAIL_TEMPLATES) await this.upsert("emailTemplates", { id: uid("tpl"), ...tpl });
-    if (Object.keys(this.state.automations || {}).length === 0)
-      for (const a of SEED_AUTOMATIONS) await this.upsert("automations", { id: uid("aut"), lastRun: "", ...a });
+    if (empty("distributionLists"))
+      for (const l of SEED_DISTRIBUTION_LISTS) await this.upsert("distributionLists", { id: seedId("lst", l.name), ...l });
+    if (empty("emailTemplates"))
+      for (const tpl of SEED_EMAIL_TEMPLATES) await this.upsert("emailTemplates", { id: seedId("tpl", tpl.name), ...tpl });
+    if (empty("automations"))
+      for (const a of SEED_AUTOMATIONS) await this.upsert("automations", { id: seedId("aut", a.name), lastRun: "", ...a });
   },
 
   // ---- migration ------------------------------------------------------------
   // Backfills new fields on older records and rolls stale recurring tasks
   // forward so the run book advances season to season on its own.
   async _migrate() {
+    await this.dedupeTasks();
     const today = todayISO();
     for (const raw of Object.values(this.state.tasks || {})) {
       const t = normalizeTask(raw);
       let changed = JSON.stringify(t) !== JSON.stringify(raw);
-      if (t.recurrence && t.recurrence !== "none" && t.dueDate &&
-          t.dueDate < today && t.status !== "Completed") {
+      // A recurring task is one row that carries over. Once its date has
+      // passed, move that same row to the next occurrence — a completed one
+      // comes back around fresh — rather than leaving a copy behind.
+      if (t.recurrence && t.recurrence !== "none" && t.dueDate && t.dueDate < today) {
         const next = nextRecurrence(t.dueDate, t.recurrence);
-        if (next) { t.dueDate = next; changed = true; }
+        if (next) {
+          t.dueDate = next;
+          if (t.status === "Completed") t.status = "Not Started";
+          changed = true;
+        }
       }
       if (changed) {
         this.state.tasks[t.id] = t;
@@ -244,6 +338,57 @@ export const Store = {
       }
     }
     this._saveCache();
+  },
+
+  // ---- de-duplication -------------------------------------------------------
+  // Collapse rows describing the same job (same title + program) into one.
+  // Duplicates came from two places: seeding a workspace that only looked empty
+  // on a slow connection, and older builds spawning a new row every time a
+  // recurring task was completed. Both are fixed above; this repairs the data
+  // they already left behind. Nothing is dropped — the survivor inherits every
+  // field the copies had filled in, and dependencies are re-pointed at it.
+  // Returns how many rows were merged away.
+  async dedupeTasks() {
+    // Never merge off a cache we haven't confirmed against the cloud.
+    if (this.mode === "cloud" && !this._seen.has("tasks")) return 0;
+    const groups = new Map();
+    for (const t of Object.values(this.state.tasks || {})) {
+      if (!t || !t.title) continue;
+      const key = taskKey(t.title, t.program);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(t);
+    }
+
+    const remap = new Map(); // discarded id -> surviving id
+    const survivors = [];
+    for (const rows of groups.values()) {
+      if (rows.length < 2) continue;
+      const ranked = [...rows].sort(compareForKeep);
+      const keeper = mergeDuplicates(ranked);
+      survivors.push(keeper);
+      for (const loser of ranked.slice(1)) remap.set(loser.id, keeper.id);
+    }
+    if (!remap.size) return 0;
+
+    for (const keeper of survivors) {
+      this.state.tasks[keeper.id] = keeper;
+      if (this.mode === "cloud") {
+        try { await setDoc(doc(db, pathFor("tasks"), keeper.id), keeper, { merge: true }); } catch {}
+      }
+    }
+    // Re-point dependencies at the surviving row before anything is deleted.
+    for (const t of Object.values(this.state.tasks || {})) {
+      if (remap.has(t.id) || !Array.isArray(t.dependsOn) || !t.dependsOn.length) continue;
+      const fixed = [...new Set(t.dependsOn.map((id) => remap.get(id) || id))].filter((id) => id !== t.id);
+      if (fixed.join() !== t.dependsOn.join()) await this.upsert("tasks", { ...t, dependsOn: fixed });
+    }
+    for (const id of remap.keys()) await this.remove("tasks", id);
+
+    const n = remap.size;
+    await this.logActivity("deduped", null, `Merged ${n} duplicate task row${n === 1 ? "" : "s"} into their originals`);
+    this._saveCache();
+    this._emit();
+    return n;
   },
 
   // ---- maintenance helpers --------------------------------------------------
@@ -257,6 +402,9 @@ export const Store = {
     for (const coll of COLLECTIONS) this.state[coll] = {};
     this.state.meta = {};
     this._ensureMetaDefaults();
+    // We just emptied these ourselves, so their state is known for certain.
+    this._seen = new Set(COLLECTIONS);
+    await this.setMeta({ seededAt: "" });
     await this._seedIfEmpty();
     this._saveCache(); this._emit();
   },
@@ -286,7 +434,9 @@ export const Store = {
       }
     }
     if (data.meta) await this.setMeta(data.meta);
+    // A backup taken before this fix can carry duplicates of its own.
+    await this.dedupeTasks();
   },
 };
 
-export { normalizeTask };
+export { normalizeTask, taskKey };

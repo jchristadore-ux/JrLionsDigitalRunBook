@@ -23,6 +23,36 @@ This project follows [Semantic Versioning](https://semver.org/).
   sending is on or off.
 - **README → "Automatic email (free, no server)"** with step-by-step EmailJS setup
   (account, Gmail service, the one template to create, security, and turning it on).
+- **Settings → "Merge duplicate tasks"** button, so duplicate rows can be cleaned
+  up on demand without waiting for a reload.
+
+### Fixed
+
+- **Every task duplicated (or triplicated) in the run book.** Seeding keyed off
+  `state.tasks` being empty, but in cloud mode the app only waited a fixed 600ms
+  for Firestore's first snapshot. On a slow connection that snapshot hadn't
+  landed, the workspace looked brand new, and all 39 starter tasks were planted
+  again with fresh random IDs — once per unlucky boot. The store now waits for
+  the real first snapshot (up to 8s) and refuses to seed a collection it hasn't
+  actually confirmed is empty.
+- **Seeding is now idempotent.** Seeded tasks, lists, templates, and automations
+  get deterministic IDs derived from their name, so a second seeding pass
+  overwrites the same documents instead of creating a parallel set. A `seededAt`
+  marker also keeps a deliberately emptied run book empty.
+- **Existing duplicates are repaired automatically.** On load (and via the new
+  Settings button) rows describing the same job — same title and program,
+  ignoring case and spacing — are merged into one. Nothing is lost: the survivor
+  inherits every field the copies had filled in, counts as Completed if any copy
+  was, keeps the soonest due date, and dependencies pointing at a discarded row
+  are re-pointed at the survivor.
+- **Recurring tasks no longer spawn a second row.** Completing an annual task
+  used to create a new task document for next season, so each job gained a row
+  per year. A repeating job is now a single row that stays Completed for the rest
+  of the season, then rolls to the next date in place.
+- **Duplicate titles are blocked at the source.** The task editor now refuses to
+  save a second live task with the same title and program, pointing at the
+  existing one instead.
+- **Settings no longer drop unknown workspace metadata** when applying defaults.
 
 ---
 
