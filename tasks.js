@@ -99,7 +99,66 @@ export function taskMatches(task) {
   return true;
 }
 
-function filteredTasks() { return Store.list("tasks").filter(taskMatches); }
+// ---- sorting ----------------------------------------------------------------
+// The run book is a calendar first, so the list sorts by due date out of the
+// box. Every other order is one click on the buttons above the list, and the
+// old drag-and-drop order is still there as its own "Manual" option.
+const SORT_KEY = "jrlions_task_sort_v1";
+export const sort = { by: "dueDate", dir: "asc" };
+function saveSort() { try { localStorage.setItem(SORT_KEY, JSON.stringify(sort)); } catch {} }
+function loadSort() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SORT_KEY) || "{}");
+    if (SORTS.some((s) => s.key === saved.by)) sort.by = saved.by;
+    if (saved.dir === "asc" || saved.dir === "desc") sort.dir = saved.dir;
+  } catch {}
+}
+
+// Effective status, ordered by how much it wants a board member's attention.
+const STATUS_RANK = { Overdue: 0, Blocked: 1, "In Progress": 2, Waiting: 3, "Not Started": 4, Completed: 5 };
+function priorityRank(t) { return (Store.meta().priorities || []).indexOf(t.priority); }
+function byText(key) {
+  return (a, b) => String(a[key] || "").localeCompare(String(b[key] || ""), undefined, { sensitivity: "base" });
+}
+
+// Each sort states its own natural first-to-last order; the direction toggle
+// flips it. Rows with nothing to sort on (no due date, no owner) always sink to
+// the bottom either way, so reversing never buries the real rows under blanks.
+export const SORTS = [
+  { key: "dueDate", label: "Due date", asc: "soonest first", desc: "latest first", blank: (t) => !t.dueDate,
+    cmp: (a, b) => String(a.dueDate).localeCompare(String(b.dueDate)) },
+  { key: "priority", label: "Priority", asc: "most urgent first", desc: "least urgent first",
+    cmp: (a, b) => priorityRank(b) - priorityRank(a) },
+  { key: "status", label: "Status", asc: "needs attention first", desc: "completed first",
+    cmp: (a, b) => (STATUS_RANK[statusOf(a)] ?? 9) - (STATUS_RANK[statusOf(b)] ?? 9) },
+  { key: "owner", label: "Owner", asc: "A–Z", desc: "Z–A", blank: (t) => !t.owner, cmp: byText("owner") },
+  { key: "category", label: "Category", asc: "A–Z", desc: "Z–A", blank: (t) => !t.category, cmp: byText("category") },
+  { key: "title", label: "Name", asc: "A–Z", desc: "Z–A", blank: (t) => !t.title, cmp: byText("title") },
+  { key: "manual", label: "Manual", asc: "your own order (drag rows to rearrange)", fixed: true, cmp: () => 0 },
+];
+loadSort(); // after SORTS exists, so a stale saved key can be validated away
+function activeSort() { return SORTS.find((s) => s.key === sort.by) || SORTS[0]; }
+// Plain-language description of a sort, e.g. "due date, soonest first".
+function describeSort(spec, dir) {
+  const how = spec.fixed || dir === "asc" ? spec.asc : spec.desc;
+  return spec.fixed ? how : `${spec.label.toLowerCase()}, ${how}`;
+}
+
+function sortTasks(items) {
+  const spec = activeSort();
+  const flip = sort.dir === "desc" && !spec.fixed ? -1 : 1;
+  const manual = (t) => t.order ?? 9e9;
+  return [...items].sort((a, b) => {
+    const blank = spec.blank || (() => false);
+    const diff = Number(blank(a)) - Number(blank(b));
+    if (diff) return diff;
+    // Manual order is the tie-break everywhere, so equal rows keep the
+    // arrangement someone dragged them into.
+    return spec.cmp(a, b) * flip || manual(a) - manual(b) || byText("title")(a, b);
+  });
+}
+
+function filteredTasks() { return sortTasks(Store.list("tasks").filter(taskMatches)); }
 
 // =============================================================================
 // MAIN RENDER
@@ -130,22 +189,46 @@ export function renderTasks(root) {
       : null,
   ]);
 
+  const spec = activeSort();
+  const sortBar = el("div.sortbar", {}, [
+    el("span.sortbar-label", { text: "Sort by" }),
+    ...SORTS.map((s) => {
+      const active = s.key === sort.by;
+      const arrow = active && !s.fixed ? (sort.dir === "asc" ? " ↑" : " ↓") : "";
+      const how = describeSort(s, active ? sort.dir : "asc");
+      return el("button.btn.sm.sort-btn" + (active ? ".active" : ""), {
+        type: "button", "aria-pressed": active ? "true" : "false",
+        title: active && !s.fixed ? `Sorted by ${how} — click again to reverse` : `Sort by ${how}`,
+        text: s.label + arrow,
+        onclick: () => {
+          if (active && !s.fixed) sort.dir = sort.dir === "asc" ? "desc" : "asc";
+          else { sort.by = s.key; sort.dir = "asc"; }
+          saveSort(); renderTasks(root);
+        },
+      });
+    }),
+    sort.by === "dueDate" && sort.dir === "asc" ? null
+      : el("button.btn.ghost.sm", { type: "button", text: "Reset", title: "Back to due date, soonest first",
+          onclick: () => { sort.by = "dueDate"; sort.dir = "asc"; saveSort(); renderTasks(root); } }),
+  ]);
+
+  const items = filteredTasks();
   const head = el("div.section-head", {}, [
     el("div", {}, [
       el("h1.page-title", { text: "Tasks" }),
-      el("p.page-sub", { text: `${filteredTasks().length} of ${Store.list("tasks").length} shown` }),
+      el("p.page-sub", { text: `${items.length} of ${Store.list("tasks").length} shown · ${describeSort(spec, sort.dir)}` }),
     ]),
     el("button.btn.primary", { type: "button", title: "Add a new task (n)", onclick: () => openTaskEditor(null), html: "＋ Add task" }),
   ]);
 
   root.appendChild(head);
   root.appendChild(filterBar);
+  root.appendChild(sortBar);
 
   const bulkBar = el("div.bulkbar", { id: "bulkbar" });
   root.appendChild(bulkBar);
   renderBulkBar(bulkBar, root);
 
-  const items = filteredTasks();
   if (!items.length) {
     root.appendChild(el("div.empty", {}, [
       el("div.empty-icon", { text: "🥍" }),
@@ -158,8 +241,13 @@ export function renderTasks(root) {
 
   const list = el("div.task-list", { id: "task-list" });
   for (const task of items) list.appendChild(taskRow(task, root));
-  enableDragOrder(list, root);
+  // Dragging rows only means something while the list is in manual order —
+  // otherwise the sort would snap them straight back.
+  if (sort.by === "manual") enableDragOrder(list, root);
   root.appendChild(list);
+  if (sort.by !== "manual") {
+    root.appendChild(el("p.list-note", { text: "Sorted automatically. Choose Manual above to drag rows into your own order." }));
+  }
 }
 
 function renderBulkBar(bar, root) {
@@ -183,8 +271,9 @@ function renderBulkBar(bar, root) {
 // ---- a single task row ------------------------------------------------------
 function taskRow(task, root) {
   const eff = statusOf(task);
+  const manualOrder = sort.by === "manual";
   const row = el("div.task-row" + (eff === "Overdue" ? ".overdue" : "") + (eff === "Blocked" ? ".blocked" : "") + (task.archived ? ".archived" : ""), {
-    draggable: true, dataset: { id: task.id },
+    draggable: manualOrder, dataset: { id: task.id },
   });
 
   const check = el("input.row-check", {
@@ -196,7 +285,7 @@ function taskRow(task, root) {
 
   const main = el("div.row-main", { onclick: () => openTaskEditor(task) }, [
     el("div.row-title-line", {}, [
-      el("span.grip", { title: "Drag to reorder", text: "⠿" }),
+      manualOrder ? el("span.grip", { title: "Drag to reorder", text: "⠿" }) : null,
       el("span.row-title", { text: task.title || "(untitled)" }),
       task.recurrence && task.recurrence !== "none" ? el("span.row-ico", { title: "Repeats", text: "🔁" }) : null,
       task.priority && task.priority !== "Medium" ? priorityChip(task.priority) : null,

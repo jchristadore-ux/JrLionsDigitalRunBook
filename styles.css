@@ -181,6 +181,14 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 5px; font-
 .toggle { display: inline-flex; align-items: center; gap: .4rem; font-size: .85rem; color: var(--ink-soft); cursor: pointer; }
 .toggle input { accent-color: var(--gold); }
 
+/* ---- sort bar -------------------------------------------------------------- */
+.sortbar { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-bottom: 1rem; }
+.sortbar-label { font-size: .8rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-right: .2rem; }
+.sort-btn { border-color: var(--line); color: var(--ink-soft); }
+.sort-btn.active { background: var(--gold-soft); border-color: var(--gold); color: var(--ink); }
+.sort-btn.active:hover { background: var(--gold-soft); }
+.list-note { font-size: .8rem; color: var(--muted); margin-top: .7rem; }
+
 /* ---- task list ------------------------------------------------------------ */
 .bulkbar { display: none; align-items: center; gap: .5rem; background: var(--ink); color: #fff; padding: .55rem .8rem; border-radius: 10px; margin-bottom: .8rem; flex-wrap: wrap; }
 .bulkbar .btn { border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; }

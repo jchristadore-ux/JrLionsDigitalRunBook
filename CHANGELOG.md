@@ -25,6 +25,21 @@ This project follows [Semantic Versioning](https://semver.org/).
   (account, Gmail service, the one template to create, security, and turning it on).
 - **Settings → "Merge duplicate tasks"** button, so duplicate rows can be cleaned
   up on demand without waiting for a reload.
+- **Sortable task list.** The Tasks page now sorts by **due date, soonest first**
+  by default — previously the only order was the stored drag-and-drop `order`
+  field, which meant the next deadline could sit anywhere on the page. A
+  **Sort by** button row above the list switches between Due date, Priority,
+  Status, Owner, Category, Name, and Manual; clicking the active button reverses
+  it, and **Reset** returns to the default. The choice persists per device, and
+  the count under the page title now names the active sort.
+  - Rows with nothing to sort on (no due date, no owner) always sink to the
+    bottom in both directions, so reversing never buries real tasks under blanks.
+  - Status sorts by urgency — overdue, blocked, in progress, waiting, not
+    started, completed — rather than alphabetically.
+  - Manual order remains the tie-break under every sort, so equal rows keep the
+    arrangement they were dragged into.
+  - Drag handles now appear only under **Manual**; dragging under an automatic
+    sort would have snapped straight back.
 
 ### Fixed
 
