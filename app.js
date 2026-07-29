@@ -408,7 +408,7 @@ function renderSettings(root) {
   // Data & backup
   const dCard = el("section.card.block");
   dCard.appendChild(el("h2", { text: "Data & backup" }));
-  dCard.appendChild(el("p.muted.small", { text: "Download a full backup, restore from one, or reset to the original run book. Passwords are left out of backups unless you tick the box." }));
+  dCard.appendChild(el("p.muted.small", { text: "Download a full backup, restore from one, merge any duplicate task rows into one, or reset to the original run book. Passwords are left out of backups unless you tick the box." }));
   let includeCreds = false;
   dCard.appendChild(el("label.toggle", {}, [
     el("input", { type: "checkbox", onchange: (e) => (includeCreds = e.target.checked) }),
@@ -417,6 +417,11 @@ function renderSettings(root) {
   dCard.appendChild(el("div.btn-row", {}, [
     el("button.btn", { type: "button", text: "⬇ Export backup (JSON)", onclick: () => exportBackup(includeCreds) }),
     el("button.btn", { type: "button", text: "⬆ Import backup", onclick: importBackup }),
+    el("button.btn", { type: "button", text: "🧹 Merge duplicate tasks", onclick: async () => {
+      const merged = await Store.dedupeTasks();
+      toast(merged ? `Merged ${merged} duplicate row${merged === 1 ? "" : "s"}` : "No duplicates found", "ok");
+      renderActive();
+    } }),
     el("button.btn.danger", { type: "button", text: "Reset to original run book", onclick: () => confirmDialog({
       title: "Reset everything?", message: "All current tasks, automations, lists and templates will be replaced with the original run book. This can't be undone.",
       confirmLabel: "Reset", onConfirm: async () => { await Store.resetToSeed(); toast("Reset to original run book"); renderActive(); } }) }),

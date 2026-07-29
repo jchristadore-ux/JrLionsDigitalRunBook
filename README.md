@@ -156,8 +156,8 @@ compile — GitHub serves the files as-is.
 
 - **Executive dashboard** with 12 toggleable summary widgets.
 - **Full task editor** covering ~25 fields, grouped into plain-language sections.
-- **Recurring tasks** that automatically create their next occurrence when
-  completed.
+- **Recurring tasks** that carry over on their own — each job stays one row and
+  simply rolls to next season's date once its date has passed.
 - **Dependencies** — a task waiting on another shows as **Blocked** until the
   other is done.
 - **No-code automation builder** with safe testing and full run history.
@@ -199,8 +199,9 @@ grouped so it's never overwhelming:
 - **Basics** — title, category, program, owner, status, priority, due date,
   description.
 - **Schedule & recurrence** — make a task repeat (monthly, quarterly, annually,
-  etc.). When you mark a recurring task **Completed**, the next one is created
-  for you automatically.
+  etc.). A repeating job always stays a single row: mark it **Completed** and it
+  stays completed for the rest of the season, then rolls forward to the next
+  date on its own. You'll never end up with two copies of the same job.
 - **Dependencies** — tick the tasks that must finish first. This task then shows
   as **Blocked** until they're done.
 - **Vendor & cost** — vendor name, amount, and how often it recurs (`one-time`,

@@ -10,7 +10,7 @@
 // Every change is written to the activity feed (never including secrets).
 // =============================================================================
 
-import { Store } from "./firestore.js";
+import { Store, taskKey } from "./firestore.js";
 import {
   el, clear, field, input, textarea, select, toast, openModal, closeModal,
   confirmDialog, fmtDate, fmtRelative, fmtMoney, parseMoney, todayISO,
@@ -58,20 +58,16 @@ export function priorityChip(p) {
 }
 
 // ---- recurrence -------------------------------------------------------------
-// When a recurring task is completed, create the next occurrence (unless one
-// already exists) so the run book rolls forward season to season on its own.
-async function maybeSpawnRecurrence(task) {
-  if (!task || task.recurrence === "none" || !task.recurrence || !task.dueDate) return;
+// A recurring task is a single row that carries over: it stays Completed for
+// the rest of this season, then the store rolls that same row to next season's
+// date on the next load (see Store._migrate). Completing one never creates a
+// second row — that's what left the run book duplicated and triplicated.
+function noteRecurrence(task) {
+  if (!task || !task.recurrence || task.recurrence === "none" || !task.dueDate) return;
   const next = nextRecurrence(task.dueDate, task.recurrence);
   if (!next) return;
-  const dup = Store.list("tasks").some((t) => !t.archived && t.title === task.title && t.dueDate === next && t.status !== "Completed");
-  if (dup) return;
-  const copy = { ...task };
-  delete copy.id; delete copy.createdAt;
-  copy.status = "Not Started"; copy.dueDate = next; copy.order = (task.order ?? 0);
-  const spawned = await Store.upsert("tasks", copy);
-  Store.logActivity("recurred", spawned, `Next occurrence scheduled for ${fmtDate(next)}`);
-  toast(`Recurring task scheduled again for ${fmtDate(next)}`);
+  Store.logActivity("recurring", task, `Comes back around on ${fmtDate(next)}`);
+  toast(`Done for now — this one comes back around on ${fmtDate(next)}`);
 }
 
 // Centralized status change so recurrence + automations + logging all fire.
@@ -79,7 +75,7 @@ async function setStatus(task, status) {
   const saved = await Store.upsert("tasks", { ...task, status });
   Store.logActivity("status", saved, `Status → ${status}`);
   Automation.onTaskEvent("status_changed", saved);
-  if (status === "Completed") await maybeSpawnRecurrence(saved);
+  if (status === "Completed") noteRecurrence(saved);
   return saved;
 }
 
@@ -377,6 +373,11 @@ export function openTaskEditor(existing) {
       if (!fTitle.value.trim()) { toast("Add a title first", "warn"); fTitle.focus(); return; }
       if (fEmail.value && !isEmail(fEmail.value)) { toast("That email doesn't look right", "warn"); fEmail.focus(); return; }
       if (fWebsite.value && !isUrl(fWebsite.value)) { toast("Website should start with http(s)://", "warn"); fWebsite.focus(); return; }
+      // One job, one row. Recurring tasks carry over in place, so a second row
+      // with the same name and program is always a duplicate.
+      const clash = Store.list("tasks").find((t2) => t2.id !== (existing && existing.id) && !t2.archived
+        && taskKey(t2.title, t2.program) === taskKey(fTitle.value, fProgram.value));
+      if (clash) { toast(`“${clash.title}” already exists for ${clash.program} — edit that one instead`, "warn"); fTitle.focus(); return; }
       const isNew = !existing;
       const prevStatus = existing ? existing.status : null;
       const rec = {
@@ -395,7 +396,7 @@ export function openTaskEditor(existing) {
       const saved = await Store.upsert("tasks", rec);
       Store.logActivity(isNew ? "created" : "updated", saved);
       Automation.onTaskEvent(isNew ? "task_created" : "task_updated", saved);
-      if (saved.status === "Completed" && prevStatus !== "Completed") await maybeSpawnRecurrence(saved);
+      if (saved.status === "Completed" && prevStatus !== "Completed") noteRecurrence(saved);
       closeModal();
       toast(existing ? "Task saved" : "Task created", "ok", isNew ? "Undo" : undefined, isNew ? () => Store.remove("tasks", saved.id) : undefined);
       rerenderTasks();
