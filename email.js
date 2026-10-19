@@ -172,7 +172,7 @@ export function renderEmail(root) {
       el("h1.page-title", { text: "Email" }),
       el("p.page-sub", { text: "Distribution lists, message templates, and a record of every message." }),
     ]),
-    el("button.btn.primary", { type: "button", html: "✉ Compose message", onclick: () => openCompose(root) }),
+    el("button.btn.primary", { type: "button", text: "✉ Compose message", onclick: () => openCompose(root) }),
   ]));
 
   // ---- Delivery status banner ----------------------------------------------

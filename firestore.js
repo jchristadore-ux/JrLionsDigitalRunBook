@@ -21,7 +21,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 import {
   DEFAULTS, WORKSPACE_ID, SEED_TASKS, SEED_DISTRIBUTION_LISTS,
-  SEED_EMAIL_TEMPLATES, SEED_AUTOMATIONS, EXPORT_CREDENTIALS_DEFAULT,
+  SEED_EMAIL_TEMPLATES, SEED_AUTOMATIONS,
 } from "./config.js";
 import { uid, monthDayToISO, nextRecurrence, todayISO } from "./ui.js";
 
@@ -53,7 +53,29 @@ function normalizeTask(t) {
   out.links = Array.isArray(out.links) ? out.links : (out.links ? String(out.links).split("\n").filter(Boolean) : []);
   if (typeof out.automationEligible !== "boolean") out.automationEligible = true;
   if (!out.recurrence) out.recurrence = "none";
+  // The run book stores where a login is kept, never the password itself.
+  out.password = "";
   return out;
+}
+
+// "LINK" and "N/A" were placeholders in the source spreadsheet. They are not
+// websites or email addresses, and must not become buttons or saved values.
+function withoutPlaceholder(value) {
+  const s = String(value ?? "").trim();
+  return /^(n\/a|link)$/i.test(s) ? "" : s;
+}
+
+// Clears plaintext passwords in a task map (mutates). Shared by backup export
+// and the one-time load cleanup. Returns how many tasks were cleared.
+function clearStoredPasswords(tasks) {
+  let cleared = 0;
+  for (const t of Object.values(tasks || {})) {
+    if (t && t.password) {
+      t.password = "";
+      cleared++;
+    }
+  }
+  return cleared;
 }
 
 // ---- stable identity --------------------------------------------------------
@@ -189,6 +211,7 @@ export const Store = {
   // ---- writes ---------------------------------------------------------------
   async upsert(coll, record) {
     const now = new Date().toISOString();
+    if (coll === "tasks" && record.password) record.password = "";
     if (!record.id) record.id = uid(coll.slice(0, 3));
     if (!record.createdAt) record.createdAt = now;
     record.updatedAt = now;
@@ -293,8 +316,8 @@ export const Store = {
           program: t.program || "ALL", owner: t.owner || "ALL",
           status: "Not Started", priority: "Medium", dueDate: due,
           recurrence: due ? "yearly" : "none",
-          website: t.website && t.website !== "N/A" ? t.website : "",
-          email: t.email && t.email !== "N/A" ? t.email : "",
+          website: withoutPlaceholder(t.website),
+          email: withoutPlaceholder(t.email),
           cost: t.cost ?? "", poc: t.poc || "", notes: t.notes || "",
           order: order++, createdAt: new Date().toISOString(),
         }));
@@ -315,6 +338,7 @@ export const Store = {
   // forward so the run book advances season to season on its own.
   async _migrate() {
     await this.dedupeTasks();
+    await this._clearStoredPasswords();
     const today = todayISO();
     for (const raw of Object.values(this.state.tasks || {})) {
       const t = normalizeTask(raw);
@@ -409,17 +433,38 @@ export const Store = {
     this._saveCache(); this._emit();
   },
 
-  exportJSON({ includeCredentials = EXPORT_CREDENTIALS_DEFAULT } = {}) {
-    const snapshot = JSON.parse(JSON.stringify(this.state));
-    if (!includeCredentials) {
-      for (const t of Object.values(snapshot.tasks || {})) {
-        if (t.password) t.password = "";
+  // One-time (and retry-until-clean) wipe of passwords already stored on tasks.
+  // Runs on load. After the field is empty, later loads do nothing. A password
+  // that shows up again — for example from an old backup — is cleared too.
+  async _clearStoredPasswords() {
+    const pending = Object.values(this.state.tasks || {}).filter((t) => t && t.password);
+    if (!pending.length) {
+      if (!(this.state.meta || {}).passwordsClearedAt) {
+        await this.setMeta({ passwordsClearedAt: new Date().toISOString() });
+      }
+      return 0;
+    }
+    const ids = pending.map((t) => t.id);
+    clearStoredPasswords(this.state.tasks);
+    if (this.mode === "cloud") {
+      for (const id of ids) {
+        try { await setDoc(doc(db, pathFor("tasks"), id), { password: "" }, { merge: true }); }
+        catch (e) { console.error("Couldn't clear a stored password", e); }
       }
     }
+    this._saveCache();
+    await this.setMeta({ passwordsClearedAt: new Date().toISOString() });
+    return ids.length;
+  },
+
+  exportJSON() {
+    const snapshot = JSON.parse(JSON.stringify(this.state));
+    // Always drop passwords. There is no longer a way to include them.
+    clearStoredPasswords(snapshot.tasks);
     return JSON.stringify({
       exportedAt: new Date().toISOString(),
       version: 2, workspace: WORKSPACE_ID,
-      credentialsIncluded: includeCredentials,
+      credentialsIncluded: false,
       data: snapshot,
     }, null, 2);
   },

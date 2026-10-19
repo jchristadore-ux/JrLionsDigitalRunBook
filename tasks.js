@@ -14,7 +14,7 @@ import { Store, taskKey } from "./firestore.js";
 import {
   el, clear, field, input, textarea, select, toast, openModal, closeModal,
   confirmDialog, fmtDate, fmtRelative, fmtMoney, parseMoney, todayISO,
-  nextRecurrence, isEmail, isUrl, uid,
+  nextRecurrence, isEmail, isUrl, uid, usableWebsite, readableColor,
 } from "./ui.js";
 import { STATUS_COLORS, PRIORITY_COLORS, RECURRENCE_OPTIONS } from "./config.js";
 import { Automation } from "./automation.js";
@@ -51,10 +51,10 @@ export function statusDot(status) {
   return el("span.dot", { style: `background:${STATUS_COLORS[status] || "#888"}` });
 }
 export function statusChip(status) {
-  return el("span.chip.status", { style: `--c:${STATUS_COLORS[status] || "#888"}` }, [statusDot(status), status]);
+  return el("span.chip.status", { style: `--c:${readableColor(STATUS_COLORS[status] || "#888")}` }, [statusDot(status), status]);
 }
 export function priorityChip(p) {
-  return el("span.chip.prio", { style: `--c:${PRIORITY_COLORS[p] || "#888"}`, text: p });
+  return el("span.chip.prio", { style: `--c:${readableColor(PRIORITY_COLORS[p] || "#888")}`, text: p });
 }
 
 // ---- recurrence -------------------------------------------------------------
@@ -218,7 +218,7 @@ export function renderTasks(root) {
       el("h1.page-title", { text: "Tasks" }),
       el("p.page-sub", { text: `${items.length} of ${Store.list("tasks").length} shown · ${describeSort(spec, sort.dir)}` }),
     ]),
-    el("button.btn.primary", { type: "button", title: "Add a new task (n)", onclick: () => openTaskEditor(null), html: "＋ Add task" }),
+    el("button.btn.primary", { type: "button", title: "Add a new task (n)", onclick: () => openTaskEditor(null), text: "＋ Add task" }),
   ]);
 
   root.appendChild(head);
@@ -301,9 +301,16 @@ function taskRow(task, root) {
     ]),
   ]);
 
+  const site = usableWebsite(task.website);
   const right = el("div.row-right", {}, [
+    site ? el("a.btn.ghost.sm", {
+      href: site, target: "_blank", rel: "noopener noreferrer", text: "Open website",
+      "aria-label": `Open website for ${task.title || "task"}`,
+      onclick: (e) => e.stopPropagation(),
+    }) : null,
     quickStatus(task, root),
-    el("button.icon-btn", { type: "button", title: "More actions", text: "⋯",
+    el("button.icon-btn", { type: "button", title: "More actions",
+      "aria-label": `More actions for ${task.title || "task"}`, text: "⋯",
       onclick: (e) => { e.stopPropagation(); openRowMenu(e.currentTarget, task, root); } }),
   ]);
 
@@ -316,7 +323,7 @@ function quickStatus(task, root) {
   const s = select(["Not Started", "In Progress", "Waiting", "Completed"],
     task.status, { class: "control status-pick", title: "Change status", onclick: (e) => e.stopPropagation(),
       onchange: async (e) => { await setStatus(task, e.target.value); toast("Status updated"); renderTasks(root); } });
-  s.style.setProperty("--c", STATUS_COLORS[eff] || "#888");
+  s.style.setProperty("--c", readableColor(STATUS_COLORS[eff] || "#888"));
   return s;
 }
 
@@ -415,15 +422,24 @@ export function openTaskEditor(existing) {
     depBox.appendChild(el("label.cbx", {}, [cb, el("span", { text: x.title })]));
   });
 
-  const fWebsite = input({ value: t.website, placeholder: "https://…" });
+  const fWebsite = input({ value: websiteForEditor(t.website), placeholder: "https://…" });
+  const websiteField = el("div.with-action", {}, [fWebsite]);
+  const syncWebsiteLink = () => {
+    websiteField.querySelector("[data-open-website]")?.remove();
+    const url = usableWebsite(fWebsite.value);
+    if (!url) return;
+    websiteField.appendChild(el("a.btn.ghost.sm", {
+      href: url, target: "_blank", rel: "noopener noreferrer",
+      "data-open-website": "true", text: "Open website",
+    }));
+  };
+  fWebsite.addEventListener("input", syncWebsiteLink);
+  syncWebsiteLink();
   const fVendor = input({ value: t.vendor, placeholder: "e.g. SquadLocker, Arbiter" });
   const fCost = input({ value: t.cost, placeholder: "$ amount", inputmode: "decimal" });
   const fCadence = select(COST_CADENCES, t.costCadence || "one-time");
   const fUser = input({ value: t.username, placeholder: "login username" });
   const fCredLoc = input({ value: t.credentialLocation, placeholder: "e.g. 1Password → Team Store vault" });
-  const fPass = input({ type: "password", value: t.password, placeholder: "(optional — prefer a location above)", autocomplete: "off" });
-  const togglePass = el("button.icon-btn.inline", { type: "button", title: "Show / hide", text: "👁",
-    onclick: () => { fPass.type = fPass.type === "password" ? "text" : "password"; } });
   const fPoc = input({ value: t.poc, placeholder: "name" });
   const fEmail = input({ type: "email", value: t.email, placeholder: "name@example.com" });
   const fRelated = input({ value: t.relatedSystems, placeholder: "e.g. Website, Arbiter, Bank account" });
@@ -443,10 +459,9 @@ export function openTaskEditor(existing) {
     el("div.form-section-label", { text: "Cost & vendor" }),
     el("div.form-row3", {}, [field("Vendor", fVendor), field("Cost", fCost), field("Cost cadence", fCadence)]),
     el("div.form-section-label", { text: "Login & access" }),
-    el("p.muted.small.sec-note", { text: "🔒 Store WHERE the login lives, not the password itself. Anything typed below is hidden in the app and left out of backups by default." }),
-    el("div.form-row2", {}, [field("Website", fWebsite), field("Username", fUser)]),
+    el("p.muted.small.sec-note", { text: "Where the login is kept — a shared password manager, or the person who has it. Don't put the password in the run book." }),
+    el("div.form-row2", {}, [field("Website", websiteField), field("Username", fUser)]),
     field("Where the login is kept", fCredLoc),
-    field("Password (optional, discouraged)", el("div.with-action", {}, [fPass, togglePass])),
     el("div.form-section-label", { text: "Contacts & references" }),
     el("div.form-row2", {}, [field("Point of contact", fPoc), field("Email", fEmail)]),
     field("Related systems", fRelated),
@@ -476,7 +491,7 @@ export function openTaskEditor(existing) {
         dueDate: fDue.value, recurrence: fRecur.value, dependsOn: [...deps],
         description: fDesc.value, website: fWebsite.value, vendor: fVendor.value,
         cost: fCost.value, costCadence: fCadence.value, username: fUser.value,
-        credentialLocation: fCredLoc.value, password: fPass.value, poc: fPoc.value,
+        credentialLocation: fCredLoc.value, password: "", poc: fPoc.value,
         email: fEmail.value, relatedSystems: fRelated.value,
         links: fLinks.value.split("\n").map((s) => s.trim()).filter(Boolean),
         files: fFiles.value, automationEligible: fAuto.checked, notes: fNotes.value,
@@ -526,3 +541,11 @@ function openBulkEdit(root) {
 let _rerender = () => {};
 export function bindTasksRerender(fn) { _rerender = fn; }
 function rerenderTasks() { _rerender(); }
+
+// Spreadsheet placeholders are not websites. Show an empty field instead, so
+// saving the task clears them and no "Open website" button is offered.
+function websiteForEditor(value) {
+  const s = String(value || "").trim();
+  if (/^(link|n\/a)$/i.test(s)) return "";
+  return s;
+}

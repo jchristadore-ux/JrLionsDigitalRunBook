@@ -17,7 +17,8 @@ export function el(spec, attrs = {}, children = []) {
   for (const [k, v] of Object.entries(attrs)) {
     if (v == null) continue;
     if (k === "class") node.className = v;
-    else if (k === "html") node.innerHTML = v;
+    // `html` is the explicit opt-in. It is sanitized; everything else is text.
+    else if (k === "html") node.innerHTML = sanitizeHtml(v);
     else if (k === "text") node.textContent = v;
     else if (k === "dataset") Object.assign(node.dataset, v);
     else if (k.startsWith("on") && typeof v === "function") node.addEventListener(k.slice(2), v);
@@ -37,6 +38,59 @@ export function escapeHtml(s) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// Tags a volunteer-authored string is allowed to contain. Every attribute is
+// stripped, so event handlers and URLs cannot ride along. Anything else is
+// turned back into plain text.
+const SAFE_HTML_TAGS = new Set(["strong", "em", "b", "i", "code", "br", "p", "span"]);
+
+export function sanitizeHtml(value) {
+  const tpl = document.createElement("template");
+  tpl.innerHTML = String(value ?? "");
+  const clean = (parent) => {
+    for (const node of [...parent.childNodes]) {
+      if (node.nodeType === Node.TEXT_NODE) continue;
+      if (node.nodeType !== Node.ELEMENT_NODE) { node.remove(); continue; }
+      const tag = node.tagName.toLowerCase();
+      if (!SAFE_HTML_TAGS.has(tag)) {
+        node.replaceWith(document.createTextNode(node.textContent || ""));
+        continue;
+      }
+      while (node.attributes.length) node.removeAttribute(node.attributes[0].name);
+      clean(node);
+    }
+  };
+  clean(tpl.content);
+  return tpl.innerHTML;
+}
+
+// Gold / status hues that fail WCAG AA as text on a light surface, and the
+// brighter partners that fail on a dark surface. Same hue, readable either way.
+const TEXT_ON_LIGHT = {
+  "#8a93a6": "#5c657c",
+  "#2f80ed": "#1558b0",
+  "#b8860b": "#7c5310",
+  "#1f9d55": "#0b7a45",
+  "#e0413a": "#c4312b",
+  "#9b51e0": "#7530b8",
+  "#e08a1e": "#9a5400",
+  "#1f9d8a": "#0d7464",
+};
+const TEXT_ON_DARK = {
+  "#8a93a6": "#b7c0d4",
+  "#2f80ed": "#7eb6ff",
+  "#b8860b": "#ffce6b",
+  "#1f9d55": "#5fd0a0",
+  "#e0413a": "#ff9a94",
+  "#9b51e0": "#d2b0ff",
+  "#e08a1e": "#ffc46b",
+  "#1f9d8a": "#5fd0c0",
+};
+export function readableColor(hex) {
+  const raw = String(hex || "").trim().toLowerCase();
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  return (dark ? TEXT_ON_DARK : TEXT_ON_LIGHT)[raw] || hex;
+}
+
 export function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); return node; }
 
 // ---- Validation helpers -----------------------------------------------------
@@ -44,7 +98,13 @@ export function isEmail(s) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s |
 export function isUrl(s) {
   const v = String(s || "").trim();
   if (!v) return true;
-  return /^https?:\/\//i.test(v) || v === "LINK" || v === "N/A";
+  return /^https?:\/\//i.test(v);
+}
+// A website is openable only when it is a real http(s) URL. Placeholders such
+// as "LINK" or "N/A", and blank values, are not.
+export function usableWebsite(s) {
+  const v = String(s || "").trim();
+  return /^https?:\/\//i.test(v) ? v : "";
 }
 export function parseMoney(s) {
   if (s === "" || s == null) return null;
@@ -149,13 +209,18 @@ export function openModal({ title, body, footer, width = 720, onClose }) {
   const overlay = el("div.modal-overlay", {
     onclick: (e) => { if (e.target === overlay) closeModal(); },
   });
-  const modal = el("div.modal", { style: `max-width:${width}px`, role: "dialog", "aria-modal": "true", "aria-label": title || "Dialog" });
+  const titleId = "modal-title";
+  const modal = el("div.modal", {
+    style: `max-width:${width}px`, role: "dialog", "aria-modal": "true", "aria-labelledby": titleId,
+  });
   const head = el("div.modal-head", {}, [
-    el("h2.modal-title", { text: title || "" }),
+    el("h2.modal-title", { id: titleId, text: title || "Dialog" }),
     el("button.icon-btn", { type: "button", "aria-label": "Close", text: "✕", onclick: () => closeModal() }),
   ]);
   const content = el("div.modal-body");
-  if (typeof body === "string") content.innerHTML = body; else if (body) content.appendChild(body);
+  // A string body is plain text. Callers that need markup pass an element, or
+  // build one with el(..., { html }) which sanitizes.
+  if (typeof body === "string") content.textContent = body; else if (body) content.appendChild(body);
   modal.appendChild(head); modal.appendChild(content);
   if (footer) { const f = el("div.modal-foot"); [].concat(footer).forEach((x) => x && f.appendChild(x)); modal.appendChild(f); }
   overlay.appendChild(modal);

@@ -1,8 +1,38 @@
-# Migration Notes — 1.0.0 → 2.0.0
+# Migration Notes
 
-**Short version: there is nothing you need to do.** Open the app once on 2.0.0
-and it upgrades itself. This document explains what happens behind the scenes so
-an administrator knows what to expect.
+## 2.1.0 — read this first
+
+**Passwords are cleared automatically.** The first time 2.1.0 opens a workspace
+it wipes any password still stored on a task and remembers that it did so
+(`passwordsClearedAt`). The editor no longer has a password field. Put the
+secret in the password manager and keep only "where the login is kept."
+Backups never include passwords. You do not need to reset the run book for this.
+
+**Starter-task wording is not migrated.** Title case, owner capitalization
+(`Mike`, `Tom/John`, …), "End of Year" instead of "EOY", and empty `LINK` /
+`N/A` websites live in `config.js` only. Seeding runs once (`seededAt` in
+`firestore.js`). A reload will not rename tasks the board is already using.
+
+To apply those wording changes to live data, either edit the tasks and the
+**Settings → Owners / volunteers** list by hand, or export a backup and use
+**Settings → Reset to original run book** (that replaces current tasks with the
+starter list). Real websites and due dates were not invented; fill those in
+yourself. The **Open website** button stays hidden until a task's website is
+an `http://` or `https://` URL.
+
+**Firestore rules are a manual publish.** Copy `firestore.rules` into the
+Firebase console (or deploy it) and add the board's emails to the allow-list.
+`REQUIRE_SIGN_IN` only hides the page.
+
+The sections below describe the 1.0.0 → 2.0.0 upgrade. Section 5's password
+notes are **outdated as of 2.1.0** — passwords are cleared, not kept.
+
+---
+
+# 1.0.0 → 2.0.0
+
+**Short version for that upgrade: there was nothing you needed to do.** Opening
+the app on 2.0.0 upgraded it. The rest of this document explains what happened.
 
 ---
 
@@ -62,17 +92,16 @@ one-time, few-second adjustment.
 
 ### 5. Credentials handling changed (read this if you stored passwords)
 
-2.0.0 treats stored passwords as optional and sensitive:
+> **Outdated — see 2.1.0 above.** The notes in this section describe 2.0.0.
+> As of 2.1.0, stored passwords are cleared on load, the password field is
+> gone, and backups cannot include them. Keep "where the login is kept."
 
-- Existing passwords in your data are **kept** and continue to work.
-- The editor now masks the password field and labels it as a reference, and
-  encourages using `credentialLocation` ("where the real login lives") instead.
-- **Exports now exclude passwords by default.** If you specifically need a backup
-  that contains them, tick "include passwords" on the export control. Otherwise
-  your backup file will have empty password fields by design.
+2.0.0 treated stored passwords as optional and sensitive:
 
-Recommendation: after upgrading, move any real secrets into your password
-manager and replace the task password with a `credentialLocation` note.
+- Existing passwords in your data were **kept** and continued to work.
+- The editor masked the password field and labeled it as a reference, and
+  encouraged using `credentialLocation` ("where the real login lives") instead.
+- **Exports excluded passwords by default.** A checkbox could put them back in.
 
 ---
 

@@ -2,7 +2,9 @@
 
 **Reviewers (roles played):** Principal PM · Senior UX · Enterprise Architect · QA Lead
 **Build reviewed:** v1.0.0 → rebuilt to **v2.0.0**
-**Verdict:** Ship-ready for board/volunteer rollout after the changes below. No blocking defects remain.
+**Verdict (v2.0.0 review):** Ship-ready for board/volunteer rollout after the changes below. No blocking defects remain.
+
+> **Outdated as a current sign-off (v2.1.0, 2026-10-19).** This file is the record of the v2.0.0 review. It is not a sign-off for the current app. Rows marked **Outdated — see 2.1.0** were superseded: the password field was removed and stored passwords are cleared, HTML is inserted as text unless it is explicitly sanitized, and Firestore access is the allow-list in `firestore.rules`. `REQUIRE_SIGN_IN` only hides the page. See `CHANGELOG.md`.
 
 This report lists what was found, how serious it was, why it mattered, and what was done. Severity scale: **S1** (broken/blocking), **S2** (significant gap vs. spec), **S3** (polish/maintainability).
 
@@ -29,7 +31,7 @@ The v1 app worked but was, in several places, a convincing shell over an incompl
 | # | Severity | Finding | Resolution |
 |---|---|---|---|
 | 2.1 | S1 | The task editor saved only ~13 fields, but the brief and the data layer required ~25 (recurrence, dependencies, vendor, related systems, doc links, automation-eligibility, credential location, cost cadence). The extra fields existed in storage but could never be entered or seen. | Editor rebuilt to expose **every** field, grouped into labelled sections (Cost & vendor, Login & access, Contacts & references). |
-| 2.2 | S2 | "Password" duplicated the idea of a secret with no safe home; there was no field for *where* a credential lives. | Added **credential location** ("where the login is kept"); the raw password field is now optional and discouraged in the UI. |
+| 2.2 | S2 | "Password" duplicated the idea of a secret with no safe home; there was no field for *where* a credential lives. | **Outdated — see 2.1.0.** 2.0.0 left the password field in place and called it optional. 2.1.0 removes the field and clears stored passwords. The "where the login is kept" note remains. |
 | 2.3 | S3 | Cost was a single number with no period, so "subscriptions that cost money" couldn't be answered. | Added **cost cadence** (one-time / monthly / yearly); the dashboard annualizes recurring costs. |
 | 2.4 | S3 | All fields are normalized on read so old records never crash the UI. | Kept and extended `normalizeTask`; added `costCadence` to the canonical shape. |
 
@@ -41,7 +43,7 @@ The v1 app worked but was, in several places, a convincing shell over an incompl
 | 3.2 | S2 | No "what needs attention today" focal point. | Added a top **attention banner** summarizing overdue + due-today + blocked + automation issues, with one-tap drill-down. |
 | 3.3 | S2 | "Assigned to me" was impossible — the app had no concept of the current person. | Added a per-device "Who are you?" selector (auto-matched from the signed-in Google name when possible) feeding an Assigned-to-me widget and stat card. |
 | 3.4 | S2 | "Renewals approaching" / "subscriptions cost money" unanswerable. | Added a Subscriptions & costs widget: lists cost-bearing tasks, flags renewals within 30 days, and shows annualized + one-time totals. |
-| 3.5 | S2 | "Credentials requiring updating" unanswerable. | Added a "Logins to tidy up" widget surfacing logins with no recorded location or a plaintext password still stored. |
+| 3.5 | S2 | "Credentials requiring updating" unanswerable. | **Outdated — see 2.1.0.** The widget remains, but it no longer looks for a stored password. It lists tasks that name a username and not where the login is kept. |
 
 ## Phase 4 — Task Management
 
@@ -66,7 +68,7 @@ Resolved via 2.1–2.3. Additionally:
 
 | # | Severity | Finding | Resolution |
 |---|---|---|---|
-| 6.1 | S3 | Technical defaults ("password") nudged unsafe behavior. | Plain-language, security-first labels: "Where the login is kept," with an inline note explaining why. |
+| 6.1 | S3 | Technical defaults ("password") nudged unsafe behavior. | **Outdated — see 2.1.0.** The note remains. The password box it used to sit above was removed in 2.1.0. |
 | 6.2 | S3 | Field grouping was flat and long. | Editor grouped into clear sections with section headers. |
 
 ## Phase 7 — Enterprise Polish
@@ -88,11 +90,11 @@ Resolved via 2.1–2.3. Additionally:
 
 | # | Severity | Finding | Resolution |
 |---|---|---|---|
-| 9.1 | **S1 (design)** | The model stored raw passwords in Firestore/localStorage and the editor encouraged it. For a volunteer org this is the single biggest data-handling risk. | Re-centered on **credential location** (point to a shared vault). Raw password is optional, masked, and **excluded from backups by default** (opt-in checkbox). The dashboard actively nudges teams to migrate plaintext secrets out. |
+| 9.1 | **S1 (design)** | The model stored raw passwords in Firestore/localStorage and the editor encouraged it. For a volunteer org this is the single biggest data-handling risk. | **Outdated — see 2.1.0.** 2.0.0 still stored an optional password and offered an "include passwords" backup checkbox. 2.1.0 removes the field, clears existing passwords on load, and never exports them. |
 | 9.2 | S2 | No input validation on email/URL. | Added validation in the task editor and list editor; bad values are rejected with a clear message. |
-| 9.3 | S2 | Output built via `innerHTML` in a couple of spots risked HTML injection from user text. | Automation descriptions are HTML-escaped; everything else uses `textContent`. |
+| 9.3 | S2 | Output built via `innerHTML` in a couple of spots risked HTML injection from user text. | **Outdated — see 2.1.0.** 2.0.0 still assigned `innerHTML` from the `html` option and from string dialog bodies. 2.1.0 inserts text unless HTML is explicitly requested, and then sanitizes it. |
 | 9.4 | S3 | No change history for accountability. | Added an activity feed (who-less but action+task+time) surfaced as "Recent changes." Secrets are never written to the feed. |
-| 9.5 | — | Access control assumption. | Documented recommended Firestore rules (sign-in required; optional allow-list by email) in the README; `REQUIRE_SIGN_IN` flag enforces it client-side. |
+| 9.5 | — | Access control assumption. | **Outdated — see 2.1.0.** The 2.0.0 README told admins they could publish `allow read, write: if true`, and described `REQUIRE_SIGN_IN` as if it enforced access. 2.1.0 ships `firestore.rules` (sign-in plus an email allow-list) and states that the flag only hides the page. The rules still have to be published in the Firebase console. |
 
 ## Phase 10 — Documentation
 

@@ -15,7 +15,7 @@ import { REQUIRE_SIGN_IN } from "./config.js";
 import {
   el, clear, field, input, select, toast, openModal, closeModal, confirmDialog,
   fmtDate, fmtDateTime, fmtRelative, fmtMoney, parseMoney, daysUntil, todayISO,
-  isModalOpen, uid,
+  isModalOpen, uid, readableColor,
 } from "./ui.js";
 import {
   renderTasks, openTaskEditor, statusOf, isOverdue, isBlocked, blockers,
@@ -66,7 +66,7 @@ function buildShell() {
   ]);
 
   const topbar = el("header.topbar", {}, [
-    el("button.icon-btn.menu-toggle", { type: "button", title: "Menu", text: "☰",
+    el("button.icon-btn.menu-toggle", { type: "button", "aria-label": "Open menu", title: "Open menu", text: "☰",
       onclick: () => document.querySelector(".sidebar").classList.toggle("open") }),
     el("div.search-wrap", {}, [
       el("span.search-ico", { text: "🔍" }),
@@ -74,7 +74,11 @@ function buildShell() {
         oninput: (e) => { filters.q = e.target.value; if (active !== "tasks") setActive("tasks"); else renderActive(); } }),
     ]),
     el("div.top-actions", {}, [
-      el("button.icon-btn", { id: "theme-btn", type: "button", title: "Toggle light / dark", text: "🌙", onclick: toggleTheme }),
+      el("button.icon-btn", {
+        id: "theme-btn", type: "button",
+        "aria-label": themeToggleLabel(), title: themeToggleLabel(),
+        text: themeToggleIcon(), onclick: toggleTheme,
+      }),
       authButton(),
     ]),
   ]);
@@ -187,10 +191,10 @@ function renderDashboard(root) {
 
   // Stat cards
   root.appendChild(el("div.stat-grid", {}, [
-    statCard("Overdue", overdue.length, "#e0413a", () => { Object.assign(filters, { status: "Overdue", q: "" }); setActive("tasks"); }),
-    statCard("Due this week", dueThisWeek.length, "#e08a1e", () => { Object.assign(filters, { status: "", q: "" }); setActive("tasks"); }),
-    statCard("Blocked", blocked.length, "#9b51e0", () => { Object.assign(filters, { status: "Blocked", q: "" }); setActive("tasks"); }),
-    statCard("My open tasks", mine.length, "#1f9d8a", () => { Object.assign(filters, { owner: me, status: "", q: "" }); setActive("tasks"); }),
+    statCard("Overdue", overdue.length, readableColor("#e0413a"), () => { Object.assign(filters, { status: "Overdue", q: "" }); setActive("tasks"); }),
+    statCard("Due this week", dueThisWeek.length, readableColor("#e08a1e"), () => { Object.assign(filters, { status: "", q: "" }); setActive("tasks"); }),
+    statCard("Blocked", blocked.length, readableColor("#9b51e0"), () => { Object.assign(filters, { status: "Blocked", q: "" }); setActive("tasks"); }),
+    statCard("My open tasks", mine.length, readableColor("#1f9d8a"), () => { Object.assign(filters, { owner: me, status: "", q: "" }); setActive("tasks"); }),
   ]));
 
   const cols = el("div.dash-cols");
@@ -212,7 +216,7 @@ function renderDashboard(root) {
   if (on("assignedToMe")) {
     const c = el("section.card.dash-card");
     const picker = select([{ value: "", label: "— pick your name —" }, ...(Store.meta().owners || []).map((o) => ({ value: o, label: o }))], me, {
-      class: "me-pick", title: "Set who you are on this device",
+      class: "me-pick", title: "Set who you are on this device", "aria-label": "Who are you?",
       onchange: (e) => { setMe(e.target.value); renderDashboard(root); } });
     c.appendChild(el("div.card-head", {}, [el("h2", { text: "Assigned to me" }), picker]));
     if (!me) c.appendChild(emptyMini("Pick your name above to see your tasks."));
@@ -301,7 +305,8 @@ function renderDashboard(root) {
     else events.slice(0, 6).forEach((ev) => c.appendChild(el("div.dash-line", {}, [
       el("span.date-badge", { text: fmtDate(ev.date) }),
       el("span.dash-line-main", { text: ev.title }),
-      el("button.icon-btn.sm", { type: "button", text: "✕", title: "Remove", onclick: () => confirmDialog({
+      el("button.icon-btn.sm", { type: "button", text: "✕", title: `Remove ${ev.title}`,
+        "aria-label": `Remove ${ev.title}`, onclick: () => confirmDialog({
         title: "Remove event?", message: ev.title, confirmLabel: "Remove",
         onConfirm: async () => { await Store.remove("events", ev.id); renderDashboard(root); } }) }),
     ])));
@@ -368,7 +373,8 @@ function renderSettings(root) {
   meCard.appendChild(el("h2", { text: "Who are you?" }));
   meCard.appendChild(el("p.muted.small", { text: "Used for the “Assigned to me” widget. Saved on this device only." }));
   meCard.appendChild(select([{ value: "", label: "— not set —" }, ...(meta.owners || []).map((o) => ({ value: o, label: o }))], getMe(), {
-    class: "me-pick wide", onchange: (e) => { setMe(e.target.value); toast(e.target.value ? `You are ${e.target.value}` : "Cleared"); } }));
+    class: "me-pick wide", "aria-label": "Who are you?",
+    onchange: (e) => { setMe(e.target.value); toast(e.target.value ? `You are ${e.target.value}` : "Cleared"); } }));
   root.appendChild(meCard);
 
   // Editable lists
@@ -408,14 +414,9 @@ function renderSettings(root) {
   // Data & backup
   const dCard = el("section.card.block");
   dCard.appendChild(el("h2", { text: "Data & backup" }));
-  dCard.appendChild(el("p.muted.small", { text: "Download a full backup, restore from one, merge any duplicate task rows into one, or reset to the original run book. Passwords are left out of backups unless you tick the box." }));
-  let includeCreds = false;
-  dCard.appendChild(el("label.toggle", {}, [
-    el("input", { type: "checkbox", onchange: (e) => (includeCreds = e.target.checked) }),
-    el("span", { text: "Include stored passwords in the backup file" }),
-  ]));
+  dCard.appendChild(el("p.muted.small", { text: "Download a full backup, restore from one, merge any duplicate task rows into one, or reset to the original run book. Passwords are not stored, and backups never include them." }));
   dCard.appendChild(el("div.btn-row", {}, [
-    el("button.btn", { type: "button", text: "⬇ Export backup (JSON)", onclick: () => exportBackup(includeCreds) }),
+    el("button.btn", { type: "button", text: "⬇ Export backup (JSON)", onclick: () => exportBackup() }),
     el("button.btn", { type: "button", text: "⬆ Import backup", onclick: importBackup }),
     el("button.btn", { type: "button", text: "🧹 Merge duplicate tasks", onclick: async () => {
       const merged = await Store.dedupeTasks();
@@ -508,7 +509,7 @@ function chipEditor(label, key) {
   values.forEach((v) => {
     chips.appendChild(el("span.edit-chip", {}, [
       el("span", { text: v }),
-      el("button.chip-x", { type: "button", title: "Remove", text: "✕", onclick: async () => {
+      el("button.chip-x", { type: "button", title: `Remove ${v}`, "aria-label": `Remove ${v}`, text: "✕", onclick: async () => {
         await Store.setMeta({ [key]: values.filter((x) => x !== v) });
         toast(`Removed "${v}"`); renderActive();
       } }),
@@ -528,14 +529,14 @@ function chipEditor(label, key) {
   return wrap;
 }
 
-function exportBackup(includeCredentials) {
-  const blob = new Blob([Store.exportJSON({ includeCredentials })], { type: "application/json" });
+function exportBackup() {
+  const blob = new Blob([Store.exportJSON()], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `jr-lions-runbook-backup-${todayISO()}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
-  toast(includeCredentials ? "Backup downloaded (with passwords)" : "Backup downloaded");
+  toast("Backup downloaded");
 }
 function importBackup() {
   const inp = document.createElement("input");
@@ -552,15 +553,30 @@ function importBackup() {
 // ---------------------------------------------------------------------------
 // Theme
 // ---------------------------------------------------------------------------
+function themeToggleLabel() {
+  const theme = document.documentElement.getAttribute("data-theme") || "light";
+  return theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+}
+function themeToggleIcon() {
+  const theme = document.documentElement.getAttribute("data-theme") || "light";
+  return theme === "dark" ? "☀️" : "🌙";
+}
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   const btn = document.getElementById("theme-btn");
-  if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
+  if (btn) {
+    btn.textContent = theme === "dark" ? "☀️" : "🌙";
+    const label = theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+    btn.setAttribute("aria-label", label);
+    btn.title = label;
+  }
   localStorage.setItem("jrlions_theme", theme);
 }
 function toggleTheme() {
   const cur = document.documentElement.getAttribute("data-theme") || "light";
   applyTheme(cur === "light" ? "dark" : "light");
+  // Stat chips and status colors pick a light or dark hue at render time.
+  if (document.getElementById("main")) renderActive();
 }
 
 // ---------------------------------------------------------------------------
@@ -618,10 +634,20 @@ async function start() {
   try { await Automation.runScheduled(); } catch (e) { console.error(e); }
 
   document.addEventListener("keydown", (e) => {
-    if (e.target.matches("input,textarea,select")) return;
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
+    if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return;
     if (e.key === "/") { e.preventDefault(); document.getElementById("global-search")?.focus(); }
-    if (e.key === "n") { e.preventDefault(); openTaskEditor(null); }
+    else if (e.key === "n") { e.preventDefault(); openTaskEditor(null); }
   });
+}
+
+function isTypingTarget(node) {
+  if (!node || node.nodeType !== 1) return false;
+  const tag = node.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (node.isContentEditable) return true;
+  const role = node.getAttribute("role");
+  return role === "textbox" || role === "searchbox" || role === "combobox";
 }
 
 boot();

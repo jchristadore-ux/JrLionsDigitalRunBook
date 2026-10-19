@@ -195,7 +195,7 @@ export function renderAutomations(root) {
       el("h1.page-title", { text: "Automations" }),
       el("p.page-sub", { text: "When something happens, do something automatically. No code." }),
     ]),
-    el("button.btn.primary", { type: "button", html: "＋ New automation", onclick: () => openAutomationEditor(null, root) }),
+    el("button.btn.primary", { type: "button", text: "＋ New automation", onclick: () => openAutomationEditor(null, root) }),
   ]));
 
   // Named-event firing panel
@@ -325,7 +325,7 @@ function openAutomationEditor(existing, root) {
   const fName = input({ value: a.name, placeholder: "e.g. Remind board 1 week before due dates" });
 
   // Trigger
-  const fTrigType = select(Object.entries(TRIGGER_LABELS).map(([v, l]) => ({ value: v, label: l })), a.trigger.type);
+  const fTrigType = select(Object.entries(TRIGGER_LABELS).map(([v, l]) => ({ value: v, label: l })), a.trigger.type, { "aria-label": "When this happens" });
   const trigExtra = el("div.trig-extra");
   function renderTrigExtra() {
     clear(trigExtra);
@@ -363,6 +363,7 @@ function openAutomationEditor(existing, root) {
   }
   function actionRow(act, idx) {
     const typeSel = select(Object.entries(ACTION_LABELS).map(([v, l]) => ({ value: v, label: l })), act.type, {
+      "aria-label": "Action",
       onchange: (e) => { actions[idx] = { type: e.target.value }; renderActions(); } });
     const detail = el("div.action-detail");
     if (act.type === "send_email") {
@@ -400,7 +401,7 @@ function openAutomationEditor(existing, root) {
     }
     return el("div.action-card", {}, [
       el("div.action-top", {}, [typeSel,
-        el("button.icon-btn.danger", { type: "button", title: "Remove", text: "✕",
+        el("button.icon-btn.danger", { type: "button", title: "Remove action", "aria-label": "Remove action", text: "✕",
           onclick: () => { actions.splice(idx, 1); if (!actions.length) actions.push({ type: "set_status", status: meta.statuses[0] }); renderActions(); } })]),
       detail,
     ]);

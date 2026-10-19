@@ -26,6 +26,7 @@ install**, no spreadsheet to email around, and no code to touch for everyday use
 - [Managing volunteers (owners)](#managing-volunteers-owners)
 - [Backup and recovery](#backup-and-recovery)
 - [Security and credentials](#security-and-credentials)
+- [Starter tasks on a live workspace](#starter-tasks-on-a-live-workspace)
 - [File structure](#file-structure)
 - [Customizing lists](#customizing-lists)
 - [Troubleshooting](#troubleshooting)
@@ -111,26 +112,41 @@ project. This is a one-time setup.
    };
    ```
    As soon as these are real (not `YOUR_…`), the app runs in shared mode.
-5. Set your Firestore **security rules**. For a small trusted board, the simplest
-   workable rule is to allow access to the single workspace. In the Firestore
-   **Rules** tab:
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /workspaces/default/{document=**} {
-         allow read, write: if true;
-       }
-     }
-   }
-   ```
-   > `if true` means anyone with the site URL can read and write. That is fine for
-   > a private, unlisted board tool. To lock it down, set `REQUIRE_SIGN_IN = true`
-   > in `config.js`, enable **Google** sign-in under Firebase **Authentication →
-   > Sign-in method**, and change the rule to `allow read, write: if request.auth
-   > != null;`.
+5. Publish the Firestore rules in **`firestore.rules`**. Those rules allow a
+   read or write only when **both** of these are true:
 
-6. Reload the app. Settings should now show a Cloud connection. The first load
+   - the person is signed in with Google, and
+   - their email is on the **board allow-list** at the top of that file.
+
+   `jrlionslax44@gmail.com` is the starting entry, marked `BOARD ALLOW-LIST`.
+   Add every board member's Google email there **before** you publish. The
+   address has to match the Google account exactly. Someone who is not on the
+   list cannot read or write the workspace, even if they can open the site.
+
+   In Firebase, open **Firestore Database → Rules**, replace the editor
+   contents with `firestore.rules`, and click **Publish**. The file in this
+   repository does nothing until it is published there. If you use the
+   Firebase CLI, `firebase deploy --only firestore:rules` publishes the same
+   file.
+
+   `REQUIRE_SIGN_IN` in `config.js` is already `true`. It **only hides the
+   page** until someone clicks Sign in. It is not access control. Anyone who
+   knows the project id can still talk to Firestore directly unless these
+   rules are published.
+
+   Also turn on **Google** as a sign-in provider under Firebase
+   **Authentication → Sign-in method**.
+
+6. Restrict the web API key to this site. The key in `config.js` is visible in
+   the page source, so it must not be usable from other websites. In Google
+   Cloud Console open **APIs & Services → Credentials**, edit the browser key,
+   and under **Application restrictions** choose **HTTP referrers**. Allow:
+
+   - `https://jchristadore-ux.github.io/*`
+   - `http://localhost:8000/*` and `http://127.0.0.1:8000/*` if you test on
+     your own computer
+
+7. Reload the app. Settings should now show a Cloud connection. The first load
    seeds the shared workspace with the board's tasks.
 
 All board data lives under a single workspace, `workspaces/default`. You don't
@@ -146,7 +162,7 @@ board from the same Firebase project.
 3. Under **Build and deployment**, set **Source** to **Deploy from a branch**,
    pick your branch (usually `main`) and the **/ (root)** folder. Save.
 4. Wait a minute; GitHub gives you a URL like
-   `https://YOURNAME.github.io/jr-lions-runbook/`. Share that with the board.
+   `https://jchristadore-ux.github.io/JrLionsDigitalRunBook/`. Share that with the board.
 
 Because the app is plain HTML/CSS/JS with no build step, there is nothing to
 compile — GitHub serves the files as-is.
@@ -186,8 +202,8 @@ widget can be turned on or off in **Settings → Dashboard widgets**:
 - **Automation Failures** — any automation runs that errored, with the message.
 - **Costs & Subscriptions** — annualized recurring spend plus one-time costs,
   with renewal flags.
-- **Credentials to tidy up** — tasks that still hold a raw password rather than a
-  credential-location pointer.
+- **Credentials to tidy up** — tasks that name a username but not where the
+  login is kept. The run book does not store passwords.
 - **Upcoming** — calendar events ahead.
 - **Recent Activity** — the latest changes anyone made.
 - **Active Automations** — what's currently switched on.
@@ -233,9 +249,9 @@ grouped so it's never overwhelming:
   as **Blocked** until they're done.
 - **Vendor & cost** — vendor name, amount, and how often it recurs (`one-time`,
   `monthly`, `quarterly`, `annual`). The dashboard uses this to total spending.
-- **Credentials** — prefer the **"Where the login lives"** field (e.g. "shared
-  1Password vault"). A password field exists but is masked, optional, and left
-  out of backups by default. See [Security](#security-and-credentials).
+- **Credentials** — the **"Where the login is kept"** field (for example
+  "shared 1Password vault"). There is no password field. See
+  [Security](#security-and-credentials).
 - **Related systems & documentation** — note other tools a task touches and paste
   links to relevant docs.
 - **Automation eligibility** — leave on for normal tasks; turn off to make sure no
@@ -337,8 +353,9 @@ automation — sends on its own.
 1. In **Account → Security**, keep **"Use Private Key"** turned **off** (the run
    book sends from the browser with the Public Key only).
 2. If an **Allowed Origins / domains** box is shown, add the address where the run
-   book is hosted, e.g. `https://YOURNAME.github.io` (and `http://localhost:8000`
-   if you test locally). Leaving it blank also works but is less secure.
+   book is hosted, e.g. `https://jchristadore-ux.github.io` (the full site is
+   `https://jchristadore-ux.github.io/JrLionsDigitalRunBook/`; add
+   `http://localhost:8000` if you test locally). Leaving it blank also works but is less secure.
 
 ### Step 6 — Turn it on in the run book
 You have two equivalent options:
@@ -398,9 +415,7 @@ Everything lives in **Settings → Data**.
 
 - **Export** downloads a single JSON file containing all tasks, automations,
   lists, templates, and events. Do this regularly, and always before upgrading.
-  - By default, **passwords are excluded** from the export. Tick **include
-    passwords** only if you specifically need a full secret-bearing backup, and
-    store that file carefully.
+  Passwords are never included, because the run book does not store them.
 - **Import** restores from a JSON file. It merges the file's data into the
   workspace. A 1.0.0 backup imports cleanly into this version.
 - **Reset to seed** wipes the workspace back to the original shipped task list.
@@ -415,22 +430,60 @@ your portable, point-in-time safety net. Keep a couple of recent ones.
 
 This tool is built for a small, trusted board, with sensible defaults:
 
-- **Store the location, not the secret.** Each task has a **credential location**
-  field — a pointer like "shared 1Password vault → Arbiter." Prefer this over
-  pasting an actual password.
-- If you do enter a password, it is **masked** in the editor and **left out of
-  backups by default**.
+- **Store where the login is kept, not the secret.** Each task has a
+  **credential location** field — a pointer like "shared 1Password vault →
+  Arbiter." There is no password field. The first time version 2.1.0 opens a
+  workspace, any password still stored on a task is cleared.
 - **Logs never contain secrets.** The activity feed and automation history record
   what changed, not credential values.
-- **Input is escaped and validated.** All free text is safely rendered; email and
-  website fields are checked when you save.
-- **Access control.** Out of the box the workspace is open to anyone with the URL
-  (fine for an unlisted board tool). To require login, set `REQUIRE_SIGN_IN =
-  true`, enable Google auth in Firebase, and tighten the Firestore rule to
-  `if request.auth != null`.
+- **Text is text.** Free-form text is inserted as text. The few spots that need
+  simple formatting (`code`, `strong`, line breaks) go through a sanitizer that
+  drops every attribute and every other tag. Email and website fields are
+  checked when you save. **Open website** appears only when the website is a
+  real `http://` or `https://` address.
+- **Access control is the Firestore rules, not the sign-in screen.**
+  `REQUIRE_SIGN_IN` defaults to `true` and only hides the page until someone
+  signs in. Publish `firestore.rules` so Firestore itself requires Google
+  sign-in **and** an email on the board allow-list. Restrict the web API key
+  to `https://jchristadore-ux.github.io/*` in Google Cloud. Steps are in
+  [Configuration](#configuration--connecting-firebase-shared-mode).
 
-The dashboard's **Credentials to tidy up** widget surfaces any task still holding
-a raw password so you can move it into your password manager.
+The dashboard's **Credentials to tidy up** widget lists tasks that name a
+username but not where that login is kept, so you can point them at the
+password manager.
+
+## Starter tasks on a live workspace
+
+The starter list in `config.js` (`SEED_TASKS`) is copied into a workspace
+**only once**, the first time that workspace is empty. `firestore.js` records
+`seededAt` on the workspace and will not plant the list again.
+
+Changing a title, an owner name, or a website in `config.js` therefore does
+**not** rename or edit tasks the board is already using. Version 2.1.0 makes
+three wording changes in that starter list only:
+
+- owner names use the same capitalization (`Mike`, `Tom/John`, `Lisa`, …)
+- task titles use title case, and "EOY" is spelled out as "End of Year"
+- placeholder `LINK` and `N/A` websites and emails are empty, so no dead
+  **Open website** button is created
+
+No URLs or due dates were filled in. The one real website already in the list
+(the Turkey Tournament page) is unchanged. Months and days are unchanged.
+
+To apply those wording changes to the **live** run book, pick one:
+
+1. **Edit in the app** (keeps everything else you've typed). Rename the tasks
+   yourself. Owner names are edited under **Settings → Owners / volunteers**;
+   existing tasks keep the owner text they already have until you change each
+   one. Clear any website that still says `LINK` or `N/A`. The **Open website**
+   button stays hidden until the field is a real `http://` or `https://` URL.
+2. **Reset to the starter list** (discards edits). In **Settings → Data &
+   backup**, export a backup first, then choose **Reset to original run book**.
+   That wipes the workspace and seeds it again from the current `config.js`.
+   Put back anything from the backup that you still need.
+
+Passwords are the exception: they are cleared automatically the first time
+2.1.0 loads the workspace. You do not reset the run book for that.
 
 ---
 
@@ -439,6 +492,7 @@ a raw password so you can move it into your password manager.
 ```
 jr-lions-runbook/
 ├── index.html        App shell; loads the ES modules.
+├── firestore.rules   Firestore rules to publish (sign-in + email allow-list).
 ├── styles.css        Full design system (tokens, light/dark, components).
 ├── config.js         ⚙️ EDIT ME: Firebase keys, workspace, seed data, defaults.
 ├── firebase.js       Firebase init + Google sign-in helpers.
@@ -481,9 +535,12 @@ Your `config.js` Firebase values are still placeholders (`YOUR_…`). Fill in al
 six real values and reload.
 
 **Changes aren't showing up for other people.**
-Confirm you're in Cloud mode (Settings shows the connection). Check your
-Firestore security rules allow access to `workspaces/default`. Check the browser
-console for permission errors.
+Confirm you're in Cloud mode (Settings shows the connection). Check that
+`firestore.rules` is published and that this person's Google email is on the
+board allow-list. Check the browser console for permission errors. A sign-in
+screen with no data behind it usually means the published rules are rejecting
+this account, or the email is not listed. `REQUIRE_SIGN_IN` only hides the
+page; it does not grant access.
 
 **"Assigned to Me" is empty.**
 Set **Settings → Who are you?** on that device.
