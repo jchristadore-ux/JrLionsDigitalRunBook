@@ -1,0 +1,34 @@
+rules_version = '2';
+// Jr Lions Lacrosse Run Book
+//
+// Publish this file in Firebase Console → Firestore Database → Rules
+// (or `firebase deploy --only firestore:rules`). The copy in the repo does
+// nothing until it is published.
+//
+// REQUIRE_SIGN_IN in config.js only hides the website. These rules are what
+// actually decide who can read and write the workspace.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // BOARD ALLOW-LIST
+    // Replace this list with the board's Google accounts before publishing.
+    // The address must match the Google account exactly (usually all lowercase).
+    // Anyone not listed is refused, even if they are signed in.
+    function allowedEmail() {
+      return request.auth.token.email in [
+        "jrlionslax44@gmail.com"
+        // Add the rest of the board above this line. Put a comma after every
+        // address except the last one:
+        // "another.board.member@gmail.com"
+      ];
+    }
+
+    function signedInAllowListed() {
+      return request.auth != null && allowedEmail();
+    }
+
+    match /workspaces/{workspace}/{document=**} {
+      allow read, write: if signedInAllowListed();
+    }
+  }
+}

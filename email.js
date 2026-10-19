@@ -170,9 +170,9 @@ export function renderEmail(root) {
   root.appendChild(el("div.section-head", {}, [
     el("div", {}, [
       el("h1.page-title", { text: "Email" }),
-      el("p.page-sub", { text: "Distribution lists, message templates, and a record of every message." }),
+      el("p.page-sub", { text: "Write to a group, reuse a message, and see what was sent." }),
     ]),
-    el("button.btn.primary", { type: "button", html: "✉ Compose message", onclick: () => openCompose(root) }),
+    el("button.btn.primary", { type: "button", text: "Write a message", onclick: () => openCompose(root) }),
   ]));
 
   // ---- Delivery status banner ----------------------------------------------
@@ -187,8 +187,8 @@ export function renderEmail(root) {
   // ---- Distribution lists ---------------------------------------------------
   const listsCard = el("section.card.block");
   listsCard.appendChild(el("div.card-head", {}, [
-    el("h2", { text: "Distribution lists" }),
-    el("button.btn.sm.primary", { type: "button", text: "＋ New list", onclick: () => openListEditor(null, root) }),
+    el("h2", { text: "Groups" }),
+    el("button.btn.sm", { type: "button", text: "New group", onclick: () => openListEditor(null, root) }),
   ]));
   const listGrid = el("div.list-grid");
   for (const l of Email.lists()) {
@@ -207,7 +207,7 @@ export function renderEmail(root) {
       ]),
     ]));
   }
-  if (!Email.lists().length) listGrid.appendChild(el("p.muted.small", { text: "No lists yet — create one to email a group at once." }));
+  if (!Email.lists().length) listGrid.appendChild(el("p.muted.small", { text: "No groups yet. A group lets you email several people at once." }));
   listsCard.appendChild(listGrid);
   root.appendChild(listsCard);
 
@@ -215,7 +215,7 @@ export function renderEmail(root) {
   const tplCard = el("section.card.block");
   tplCard.appendChild(el("div.card-head", {}, [
     el("h2", { text: "Templates" }),
-    el("button.btn.sm.primary", { type: "button", text: "＋ New template", onclick: () => openTemplateEditor(null, root) }),
+    el("button.btn.sm", { type: "button", text: "New template", onclick: () => openTemplateEditor(null, root) }),
   ]));
   tplCard.appendChild(el("p.muted.small", { text: "Variables: " + TEMPLATE_VARS.join(" · ") }));
   const tplGrid = el("div.list-grid");
@@ -232,6 +232,7 @@ export function renderEmail(root) {
       ]),
     ]));
   }
+  if (!Email.templates().length) tplGrid.appendChild(el("p.muted.small", { text: "No templates yet. Save a message you send often, like a practice reminder." }));
   tplCard.appendChild(tplGrid);
   root.appendChild(tplCard);
 
@@ -240,7 +241,7 @@ export function renderEmail(root) {
   outCard.appendChild(el("div.card-head", {}, [el("h2", { text: "Outbox" }), el("span.muted.small", { text: "Most recent first" })]));
   const out = Email.outbox();
   if (!out.length) {
-    outCard.appendChild(el("p.muted", { text: "Nothing here yet. Compose a message or run an automation to see it." }));
+    outCard.appendChild(el("p.muted", { text: "Nothing sent yet. Write a message, or run an automation, and it will show up here." }));
   } else {
     const tbl = el("div.outbox");
     for (const e of out.slice(0, 40)) {

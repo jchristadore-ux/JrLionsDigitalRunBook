@@ -193,16 +193,16 @@ export function renderAutomations(root) {
   root.appendChild(el("div.section-head", {}, [
     el("div", {}, [
       el("h1.page-title", { text: "Automations" }),
-      el("p.page-sub", { text: "When something happens, do something automatically. No code." }),
+      el("p.page-sub", { text: "A rule that reminds someone or updates a task for you." }),
     ]),
-    el("button.btn.primary", { type: "button", html: "＋ New automation", onclick: () => openAutomationEditor(null, root) }),
+    el("button.btn.primary", { type: "button", text: "New automation", onclick: () => openAutomationEditor(null, root) }),
   ]));
 
   // Named-event firing panel
   const triggers = meta.triggers || [];
   if (triggers.length) {
     const panel = el("section.card.block");
-    panel.appendChild(el("div.card-head", {}, [el("h2", { text: "Fire an event" }), el("span.muted.small", { text: "Runs every automation listening for it" })]));
+    panel.appendChild(el("div.card-head", {}, [el("h2", { text: "Run an event" }), el("span.muted.small", { text: "Use this when something happens, like registration opening." })]));
     const row = el("div.trigger-row");
     for (const name of triggers) {
       row.appendChild(el("button.btn.ghost.sm", { type: "button", text: "▶ " + name, onclick: async () => {
@@ -220,7 +220,7 @@ export function renderAutomations(root) {
     root.appendChild(el("div.empty", {}, [
       el("div.empty-icon", { text: "⚙️" }),
       el("h3", { text: "No automations yet" }),
-      el("p", { text: "Create one to send reminders, update tasks, or kick off work automatically." }),
+      el("p", { text: "Add one when you want a reminder or a task update to happen on its own." }),
       el("button.btn.primary", { type: "button", text: "New automation", onclick: () => openAutomationEditor(null, root) }),
     ]));
     return;
@@ -325,7 +325,7 @@ function openAutomationEditor(existing, root) {
   const fName = input({ value: a.name, placeholder: "e.g. Remind board 1 week before due dates" });
 
   // Trigger
-  const fTrigType = select(Object.entries(TRIGGER_LABELS).map(([v, l]) => ({ value: v, label: l })), a.trigger.type);
+  const fTrigType = select(Object.entries(TRIGGER_LABELS).map(([v, l]) => ({ value: v, label: l })), a.trigger.type, { "aria-label": "When this happens" });
   const trigExtra = el("div.trig-extra");
   function renderTrigExtra() {
     clear(trigExtra);
@@ -363,6 +363,7 @@ function openAutomationEditor(existing, root) {
   }
   function actionRow(act, idx) {
     const typeSel = select(Object.entries(ACTION_LABELS).map(([v, l]) => ({ value: v, label: l })), act.type, {
+      "aria-label": "Action",
       onchange: (e) => { actions[idx] = { type: e.target.value }; renderActions(); } });
     const detail = el("div.action-detail");
     if (act.type === "send_email") {
@@ -400,7 +401,7 @@ function openAutomationEditor(existing, root) {
     }
     return el("div.action-card", {}, [
       el("div.action-top", {}, [typeSel,
-        el("button.icon-btn.danger", { type: "button", title: "Remove", text: "✕",
+        el("button.icon-btn.danger", { type: "button", title: "Remove action", "aria-label": "Remove action", text: "✕",
           onclick: () => { actions.splice(idx, 1); if (!actions.length) actions.push({ type: "set_status", status: meta.statuses[0] }); renderActions(); } })]),
       detail,
     ]);

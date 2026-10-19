@@ -15,7 +15,7 @@ import { REQUIRE_SIGN_IN } from "./config.js";
 import {
   el, clear, field, input, select, toast, openModal, closeModal, confirmDialog,
   fmtDate, fmtDateTime, fmtRelative, fmtMoney, parseMoney, daysUntil, todayISO,
-  isModalOpen, uid,
+  isModalOpen, uid, readableColor,
 } from "./ui.js";
 import {
   renderTasks, openTaskEditor, statusOf, isOverdue, isBlocked, blockers,
@@ -25,11 +25,11 @@ import { renderAutomations, Automation } from "./automation.js";
 import { renderEmail, Email } from "./email.js";
 
 const TABS = [
-  { id: "dashboard", label: "Dashboard", icon: "▦" },
-  { id: "tasks", label: "Tasks", icon: "✓" },
-  { id: "automations", label: "Automations", icon: "⚙" },
-  { id: "email", label: "Email", icon: "✉" },
-  { id: "settings", label: "Settings", icon: "⚙︎" },
+  { id: "dashboard", label: "Home", icon: "M4 10.8 12 4l8 6.8V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z" },
+  { id: "tasks", label: "Tasks", icon: "M9 7h11M9 12h11M9 17h11M4.5 7h.01M4.5 12h.01M4.5 17h.01" },
+  { id: "automations", label: "Automations", icon: "M21 12a9 9 0 0 1-15.5 6.2M3 12a9 9 0 0 1 15.5-6.2M19 3v5h5M5 21v-5H0" },
+  { id: "email", label: "Email", icon: "M4 7.5h16v10H4zM4 8.5l8 5.2 8-5.2" },
+  { id: "settings", label: "Settings", icon: "M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4zM12 3.2v2M12 18.8v2M4.6 6.2l1.4 1.4M18 16.4l1.4 1.4M3.2 12h2M18.8 12h2M4.6 17.8 6 16.4M18 7.6l1.4-1.4" },
 ];
 let active = "dashboard";
 let currentUser = null;
@@ -47,73 +47,117 @@ function ownerIsMe(owner, me) {
 // ---------------------------------------------------------------------------
 // Layout
 // ---------------------------------------------------------------------------
+function icon(d) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("class", "ico");
+  const p = document.createElementNS(ns, "path");
+  p.setAttribute("d", d);
+  p.setAttribute("fill", "none");
+  p.setAttribute("stroke", "currentColor");
+  p.setAttribute("stroke-width", "1.75");
+  p.setAttribute("stroke-linecap", "round");
+  p.setAttribute("stroke-linejoin", "round");
+  svg.appendChild(p);
+  return svg;
+}
+
 function buildShell() {
   const app = document.getElementById("app");
   clear(app);
+  const synced = Store.mode === "cloud";
 
   const sidebar = el("aside.sidebar", {}, [
     el("div.brand", {}, [
-      el("div.brand-mark", { text: "🦁" }),
-      el("div", {}, [el("div.brand-name", { text: "Jr Lions" }), el("div.brand-sub", { text: "Lacrosse Run Book" })]),
+      el("div.brand-mark", { text: "🦁", "aria-hidden": "true" }),
+      el("div", {}, [
+        el("div.brand-name", { text: "Jr Lions" }),
+        el("div.brand-sub", { text: "Lacrosse" }),
+      ]),
     ]),
-    el("nav.nav", { id: "nav" }),
+    el("nav.nav", { id: "nav", "aria-label": "Sections" }),
     el("div.side-foot", {}, [
-      el("div.mode-badge" + (Store.mode === "cloud" ? ".cloud" : ".local"), {
-        text: Store.mode === "cloud" ? "● Synced to cloud" : "● Saved on this device",
-        title: Store.mode === "cloud" ? "Connected to Firebase" : "Add Firebase in config.js to sync across devices",
+      el("p.sync-note", {
+        text: synced ? "Synced for everyone signed in" : "Saved on this device",
       }),
     ]),
   ]);
 
   const topbar = el("header.topbar", {}, [
-    el("button.icon-btn.menu-toggle", { type: "button", title: "Menu", text: "☰",
-      onclick: () => document.querySelector(".sidebar").classList.toggle("open") }),
     el("div.search-wrap", {}, [
-      el("span.search-ico", { text: "🔍" }),
-      el("input.search", { id: "global-search", type: "search", placeholder: "Search tasks…  (press /)", value: filters.q,
-        oninput: (e) => { filters.q = e.target.value; if (active !== "tasks") setActive("tasks"); else renderActive(); } }),
+      el("span.search-ico", { text: "🔍", "aria-hidden": "true" }),
+      el("input.search", {
+        id: "global-search", type: "search", placeholder: "Search tasks",
+        "aria-label": "Search tasks",
+        title: "Search tasks. Press / to jump here.",
+        value: filters.q,
+        oninput: (e) => { filters.q = e.target.value; if (active !== "tasks") setActive("tasks"); else renderActive(); },
+      }),
     ]),
     el("div.top-actions", {}, [
-      el("button.icon-btn", { id: "theme-btn", type: "button", title: "Toggle light / dark", text: "🌙", onclick: toggleTheme }),
+      el("span.sync-note.mobile-only", { text: synced ? "Synced" : "On this device" }),
       authButton(),
     ]),
   ]);
 
   const main = el("main.main", { id: "main" });
+  const tabbar = el("nav.tabbar", { id: "tabbar", "aria-label": "Sections" });
   app.appendChild(sidebar);
   app.appendChild(el("div.content", {}, [topbar, main]));
+  app.appendChild(tabbar);
   renderNav();
 }
 
 function authButton() {
   if (!isConfigured) return el("span.muted.small.signin-hint", { text: "Local mode" });
   if (currentUser) {
-    return el("button.user-btn", { type: "button", title: currentUser.email,
+    const who = currentUser.displayName || currentUser.email || "signed-in user";
+    return el("button.user-btn", {
+      type: "button",
+      title: currentUser.email || who,
+      "aria-label": `Account for ${who}. Sign out.`,
       onclick: () => confirmDialog({ title: "Sign out?", message: currentUser.email, confirmLabel: "Sign out", danger: false,
         onConfirm: () => signOutUser() }) }, [
-      el("span.avatar", { text: (currentUser.displayName || currentUser.email || "?")[0].toUpperCase() }),
+      el("span.avatar", { text: who[0].toUpperCase(), "aria-hidden": "true" }),
     ]);
   }
   return el("button.btn.sm.primary", { type: "button", text: "Sign in",
     onclick: async () => { try { await signIn(); toast("Signed in"); } catch (e) { toast(e.message, "warn"); } } });
 }
 
+function navButton(tab, className) {
+  const on = active === tab.id;
+  return el("button." + className + (on ? ".active" : ""), {
+    type: "button",
+    "aria-current": on ? "page" : null,
+    onclick: () => setActive(tab.id),
+  }, [icon(tab.icon), el("span", { text: tab.label })]);
+}
+
 function renderNav() {
   const nav = document.getElementById("nav");
-  clear(nav);
+  const tabs = document.getElementById("tabbar");
+  if (nav) clear(nav);
+  if (tabs) clear(tabs);
   for (const t of TABS) {
-    nav.appendChild(el("button.nav-item" + (active === t.id ? ".active" : ""), {
-      type: "button", onclick: () => setActive(t.id),
-    }, [el("span.nav-ico", { text: t.icon }), el("span", { text: t.label })]));
+    nav?.appendChild(navButton(t, "nav-item"));
+    tabs?.appendChild(navButton(t, "tab-item"));
   }
 }
 
 function setActive(id) {
   active = id;
-  document.querySelector(".sidebar")?.classList.remove("open");
   renderNav();
   renderActive();
-  document.getElementById("main")?.scrollTo(0, 0);
+  const main = document.getElementById("main");
+  if (main) {
+    main.scrollTo(0, 0);
+    main.classList.remove("entering");
+    void main.offsetWidth;
+    main.classList.add("entering");
+  }
 }
 
 function renderActive() {
@@ -151,20 +195,19 @@ function renderDashboard(root) {
   const activity = Store.activity();
   const events = Store.list("events").filter((e) => e.type === "event" && e.date >= today).sort((a, b) => a.date.localeCompare(b.date));
 
-  // Header
+  const needs = overdue.length + dueToday.length + blocked.length;
+  const summary = !tasks.length
+    ? "Nothing here yet. Add a task when you know the next step."
+    : !needs
+      ? `${tasks.length} open tasks. Nothing is late or blocked.`
+      : `${needs} thing${needs === 1 ? "" : "s"} to look at · ${tasks.length} open tasks`;
+
   root.appendChild(el("div.section-head", {}, [
     el("div", {}, [
-      el("h1.page-title", { text: "Run Book" }),
-      el("p.page-sub", { text: `${tasks.length} active · ${overdue.length} overdue · ${dueThisWeek.length} due this week · ${blocked.length} blocked` }),
+      el("h1.page-title", { text: "Today" }),
+      el("p.page-sub", { text: summary }),
     ]),
-  ]));
-
-  // Quick actions
-  root.appendChild(el("div.quick-actions", {}, [
-    quickBtn("＋ Add task", () => openTaskEditor(null)),
-    quickBtn("⚙ New automation", () => setActive("automations")),
-    quickBtn("✉ Email update", () => setActive("email")),
-    quickBtn("📅 Add event", () => openEventEditor(root)),
+    el("button.btn.primary", { type: "button", text: "Add a task", title: "Add a task (n)", onclick: () => openTaskEditor(null) }),
   ]));
 
   // "Needs attention today" banner
@@ -172,14 +215,14 @@ function renderDashboard(root) {
     const attn = overdue.length + dueToday.length + blocked.length + failures.length;
     const banner = el("section.attention" + (attn ? ".live" : ".calm"));
     if (!attn) {
-      banner.appendChild(el("div.attn-main", {}, [el("strong", { text: "🎉 All clear today." }), el("span.muted", { text: " Nothing overdue, due today, or blocked." })]));
+      banner.appendChild(el("div.attn-main", {}, [el("strong", { text: "You're all caught up." }), el("span.muted", { text: " Nothing is late, due today, or waiting on another task." })]));
     } else {
-      banner.appendChild(el("div.attn-main", {}, [el("strong", { text: "Needs attention today" })]));
+      banner.appendChild(el("div.attn-main", {}, [el("strong", { text: "Needs a look" })]));
       const pills = el("div.attn-pills");
-      if (overdue.length) pills.appendChild(attnPill(`${overdue.length} overdue`, "danger", () => { Object.assign(filters, { status: "Overdue", q: "" }); setActive("tasks"); }));
+      if (overdue.length) pills.appendChild(attnPill(`${overdue.length} late`, "danger", () => { Object.assign(filters, { status: "Overdue", q: "" }); setActive("tasks"); }));
       if (dueToday.length) pills.appendChild(attnPill(`${dueToday.length} due today`, "warn", () => { Object.assign(filters, { status: "", q: "" }); setActive("tasks"); }));
       if (blocked.length) pills.appendChild(attnPill(`${blocked.length} blocked`, "violet", () => { Object.assign(filters, { status: "Blocked", q: "" }); setActive("tasks"); }));
-      if (failures.length) pills.appendChild(attnPill(`${failures.length} automation issue(s)`, "danger", () => setActive("automations")));
+      if (failures.length) pills.appendChild(attnPill(`${failures.length} automation problem${failures.length === 1 ? "" : "s"}`, "danger", () => setActive("automations")));
       banner.appendChild(pills);
     }
     root.appendChild(banner);
@@ -187,21 +230,21 @@ function renderDashboard(root) {
 
   // Stat cards
   root.appendChild(el("div.stat-grid", {}, [
-    statCard("Overdue", overdue.length, "#e0413a", () => { Object.assign(filters, { status: "Overdue", q: "" }); setActive("tasks"); }),
-    statCard("Due this week", dueThisWeek.length, "#e08a1e", () => { Object.assign(filters, { status: "", q: "" }); setActive("tasks"); }),
-    statCard("Blocked", blocked.length, "#9b51e0", () => { Object.assign(filters, { status: "Blocked", q: "" }); setActive("tasks"); }),
-    statCard("My open tasks", mine.length, "#1f9d8a", () => { Object.assign(filters, { owner: me, status: "", q: "" }); setActive("tasks"); }),
+    statCard("Late", overdue.length, readableColor("#e0413a"), () => { Object.assign(filters, { status: "Overdue", q: "" }); setActive("tasks"); }),
+    statCard("This week", dueThisWeek.length, readableColor("#e08a1e"), () => { Object.assign(filters, { status: "", q: "" }); setActive("tasks"); }),
+    statCard("Blocked", blocked.length, readableColor("#9b51e0"), () => { Object.assign(filters, { status: "Blocked", q: "" }); setActive("tasks"); }),
+    statCard("Mine", mine.length, readableColor("#1f9d8a"), () => { Object.assign(filters, { owner: me, status: "", q: "" }); setActive("tasks"); }),
   ]));
 
   const cols = el("div.dash-cols");
 
-  if (on("overdue")) cols.appendChild(taskListCard("Overdue", overdue, "danger", "Nothing overdue — nice work."));
-  if (on("dueThisWeek")) cols.appendChild(taskListCard("Due this week", dueThisWeek, "warn", "Nothing due in the next 7 days."));
+  if (on("overdue")) cols.appendChild(taskListCard("Late", overdue, "danger", "You're caught up. Nothing is late."));
+  if (on("dueThisWeek")) cols.appendChild(taskListCard("Due this week", dueThisWeek, "warn", "Nothing is due in the next 7 days."));
 
   if (on("blocked")) {
     const c = card("Blocked", blocked.length, "violet");
     if (!blocked.length) c.appendChild(emptyMini("Nothing is waiting on another task."));
-    else blocked.slice(0, 8).forEach((t) => c.appendChild(el("div.dash-line.clickable", { onclick: () => openTaskEditor(t) }, [
+    else blocked.slice(0, 8).forEach((t) => c.appendChild(el("button.dash-line.clickable", { type: "button", onclick: () => openTaskEditor(t) }, [
       el("span.dot", { style: "background:#9b51e0" }),
       el("span.dash-line-main", { text: t.title }),
       el("span.muted.small", { title: "Waiting on", text: "waits on " + blockers(t).map((b) => b.title).join(", ").slice(0, 40) }),
@@ -212,12 +255,12 @@ function renderDashboard(root) {
   if (on("assignedToMe")) {
     const c = el("section.card.dash-card");
     const picker = select([{ value: "", label: "— pick your name —" }, ...(Store.meta().owners || []).map((o) => ({ value: o, label: o }))], me, {
-      class: "me-pick", title: "Set who you are on this device",
+      class: "me-pick", title: "Set who you are on this device", "aria-label": "Who are you?",
       onchange: (e) => { setMe(e.target.value); renderDashboard(root); } });
     c.appendChild(el("div.card-head", {}, [el("h2", { text: "Assigned to me" }), picker]));
-    if (!me) c.appendChild(emptyMini("Pick your name above to see your tasks."));
-    else if (!mine.length) c.appendChild(emptyMini(`Nothing open for ${me}. 🎉`));
-    else mine.slice(0, 8).forEach((t) => c.appendChild(el("div.dash-line.clickable", { onclick: () => openTaskEditor(t) }, [
+    if (!me) c.appendChild(emptyMini("Choose your name to see your tasks."));
+    else if (!mine.length) c.appendChild(emptyMini(`Nothing open for ${me}.`));
+    else mine.slice(0, 8).forEach((t) => c.appendChild(el("button.dash-line.clickable", { type: "button", onclick: () => openTaskEditor(t) }, [
       statusChip(statusOf(t)), el("span.dash-line-main", { text: t.title }),
       t.dueDate ? el("span.muted.small", { text: fmtRelative(t.dueDate) }) : null,
     ])));
@@ -226,8 +269,8 @@ function renderDashboard(root) {
 
   if (on("automationFailures")) {
     const c = el("section.card.dash-card");
-    c.appendChild(el("div.card-head", {}, [el("h2", { text: "Automation issues" }), el("button.btn.ghost.sm", { type: "button", text: "Open", onclick: () => setActive("automations") })]));
-    if (!failures.length) c.appendChild(emptyMini("All automations ran cleanly."));
+    c.appendChild(el("div.card-head", {}, [el("h2", { text: "Automation problems" })]));
+    if (!failures.length) c.appendChild(emptyMini("Every automation ran without a problem."));
     else failures.slice(0, 6).forEach((r) => c.appendChild(el("div.dash-line", {}, [
       el("span.run-pill.danger", { text: "✕" }),
       el("span.dash-line-main", { title: r.error || "", text: r.automationName }),
@@ -241,13 +284,13 @@ function renderDashboard(root) {
     const annual = recurring.reduce((sum, t) => sum + parseMoney(t.cost) * (t.costCadence === "monthly" ? 12 : 1), 0);
     const oneTime = costTasks.filter((t) => !t.costCadence || t.costCadence === "one-time").reduce((s, t) => s + parseMoney(t.cost), 0);
     const c = el("section.card.dash-card");
-    c.appendChild(el("div.card-head", {}, [el("h2", { text: "Subscriptions & costs" }),
+    c.appendChild(el("div.card-head", {}, [el("h2", { text: "Costs" }),
       el("span.muted.small", { text: (annual ? `~${fmtMoney(annual)}/yr` : "") + (annual && oneTime ? " · " : "") + (oneTime ? `${fmtMoney(oneTime)} one-time` : "") })]));
     if (!costTasks.length) c.appendChild(emptyMini("No tasks have a cost recorded."));
     else costTasks.sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate))).slice(0, 8).forEach((t) => {
       const cad = t.costCadence === "monthly" ? "/mo" : t.costCadence === "yearly" ? "/yr" : "";
       const renew = t.dueDate ? daysUntil(t.dueDate) : Infinity;
-      c.appendChild(el("div.dash-line.clickable", { onclick: () => openTaskEditor(t) }, [
+      c.appendChild(el("button.dash-line.clickable", { type: "button", onclick: () => openTaskEditor(t) }, [
         el("span.dash-line-main", { text: (t.vendor ? t.vendor + " — " : "") + t.title }),
         renew <= 30 && renew >= 0 ? el("span.tag.due-over", { text: "renews " + fmtRelative(t.dueDate) }) : null,
         el("span.cost-amt", { text: fmtMoney(t.cost) + cad }),
@@ -259,8 +302,8 @@ function renderDashboard(root) {
   if (on("credentials")) {
     const c = el("section.card.dash-card");
     c.appendChild(el("div.card-head", {}, [el("h2", { text: "Logins to tidy up" }), el("span.muted.small", { text: "Security" })]));
-    if (!credTasks.length) c.appendChild(emptyMini("Every login records where it's kept. 👍"));
-    else credTasks.slice(0, 8).forEach((t) => c.appendChild(el("div.dash-line.clickable", { onclick: () => openTaskEditor(t) }, [
+    if (!credTasks.length) c.appendChild(emptyMini("Every login says where it is kept."));
+    else credTasks.slice(0, 8).forEach((t) => c.appendChild(el("button.dash-line.clickable", { type: "button", onclick: () => openTaskEditor(t) }, [
       el("span.dot", { style: "background:#e08a1e" }),
       el("span.dash-line-main", { text: t.title }),
       el("span.muted.small", { text: t.password ? "move password to a vault" : "add where login is kept" }),
@@ -268,12 +311,12 @@ function renderDashboard(root) {
     cols.appendChild(c);
   }
 
-  if (on("upcoming")) cols.appendChild(taskListCard("Upcoming", upcoming.slice(0, 8), "", "No future-dated tasks yet."));
+  if (on("upcoming")) cols.appendChild(taskListCard("Coming up later", upcoming.slice(0, 8), "", "No tasks are scheduled after this week."));
 
   if (on("recentActivity")) {
     const c = el("section.card.dash-card");
     c.appendChild(el("div.card-head", {}, [el("h2", { text: "Recent changes" })]));
-    if (!activity.length) c.appendChild(emptyMini("Changes you make will show up here."));
+    if (!activity.length) c.appendChild(emptyMini("Changes show up here after someone edits a task."));
     else activity.slice(0, 10).forEach((a) => c.appendChild(el("div.dash-line", {}, [
       el("span.act-verb", { text: actVerb(a.action) }),
       el("span.dash-line-main", { text: a.taskTitle || "(task)" }),
@@ -284,8 +327,8 @@ function renderDashboard(root) {
 
   if (on("automations")) {
     const c = el("section.card.dash-card");
-    c.appendChild(el("div.card-head", {}, [el("h2", { text: "Active automations" }), el("button.btn.ghost.sm", { type: "button", text: "Manage", onclick: () => setActive("automations") })]));
-    if (!activeAutos.length) c.appendChild(emptyMini("No automations enabled."));
+    c.appendChild(el("div.card-head", {}, [el("h2", { text: "Automations that are on" })]));
+    if (!activeAutos.length) c.appendChild(emptyMini("No automations are turned on. Add one from the Automations tab."));
     else activeAutos.slice(0, 6).forEach((a) => c.appendChild(el("div.dash-line", {}, [
       el("span.dot", { style: "background:#1f9d55" }),
       el("span.dash-line-main", { text: a.name }),
@@ -296,12 +339,13 @@ function renderDashboard(root) {
 
   if (on("events")) {
     const c = el("section.card.dash-card");
-    c.appendChild(el("div.card-head", {}, [el("h2", { text: "Upcoming events" }), el("button.btn.ghost.sm", { type: "button", text: "Add", onclick: () => openEventEditor(root) })]));
-    if (!events.length) c.appendChild(emptyMini("No events scheduled."));
+    c.appendChild(el("div.card-head", {}, [el("h2", { text: "Events" }), el("button.btn.primary.sm", { type: "button", text: "Add event", onclick: () => openEventEditor(root) })]));
+    if (!events.length) c.appendChild(emptyMini("No events yet. Add a picnic, tournament, or meeting."));
     else events.slice(0, 6).forEach((ev) => c.appendChild(el("div.dash-line", {}, [
       el("span.date-badge", { text: fmtDate(ev.date) }),
       el("span.dash-line-main", { text: ev.title }),
-      el("button.icon-btn.sm", { type: "button", text: "✕", title: "Remove", onclick: () => confirmDialog({
+      el("button.icon-btn.sm", { type: "button", text: "✕", title: `Remove ${ev.title}`,
+        "aria-label": `Remove ${ev.title}`, onclick: () => confirmDialog({
         title: "Remove event?", message: ev.title, confirmLabel: "Remove",
         onConfirm: async () => { await Store.remove("events", ev.id); renderDashboard(root); } }) }),
     ])));
@@ -314,7 +358,6 @@ function renderDashboard(root) {
 const ACT_VERBS = { created: "＋ added", updated: "✎ edited", status: "↻ status", archived: "📦 archived", unarchived: "↩ restored", deleted: "🗑 deleted", recurred: "🔁 repeated" };
 function actVerb(a) { return ACT_VERBS[a] || a; }
 
-function quickBtn(label, fn) { return el("button.quick-btn", { type: "button", text: label, onclick: fn }); }
 function attnPill(text, kind, onclick) { return el("button.attn-pill." + kind, { type: "button", text, onclick }); }
 function statCard(label, value, color, onclick) {
   return el("button.stat-card", { type: "button", style: `--c:${color}`, onclick }, [
@@ -332,7 +375,7 @@ function taskListCard(title, items, kind, emptyText) {
   const c = card(title, items.length, kind);
   if (!items.length) { c.appendChild(emptyMini(emptyText)); return c; }
   for (const t of items.slice(0, 8)) {
-    c.appendChild(el("div.dash-line.clickable", { onclick: () => openTaskEditor(t) }, [
+    c.appendChild(el("button.dash-line.clickable", { type: "button", onclick: () => openTaskEditor(t) }, [
       statusChip(statusOf(t)),
       el("span.dash-line-main", { text: t.title }),
       t.dueDate ? el("span.muted.small", { text: fmtRelative(t.dueDate) }) : el("span.muted.small", { text: t.owner || "" }),
@@ -360,21 +403,31 @@ function renderSettings(root) {
   clear(root);
   const meta = Store.meta();
   root.appendChild(el("div.section-head", {}, [
-    el("div", {}, [el("h1.page-title", { text: "Settings" }), el("p.page-sub", { text: "Customize the run book. Changes save instantly for everyone." })]),
+    el("div", {}, [
+      el("h1.page-title", { text: "Settings" }),
+      el("p.page-sub", { text: "Changes save right away for everyone who is signed in." }),
+    ]),
   ]));
+
+  const lookCard = el("section.card.block");
+  lookCard.appendChild(el("h2", { text: "Appearance" }));
+  lookCard.appendChild(el("p.muted.small", { text: "Match device follows the light or dark setting on this phone or computer." }));
+  lookCard.appendChild(appearanceControl());
+  root.appendChild(lookCard);
 
   // Who am I
   const meCard = el("section.card.block");
-  meCard.appendChild(el("h2", { text: "Who are you?" }));
-  meCard.appendChild(el("p.muted.small", { text: "Used for the “Assigned to me” widget. Saved on this device only." }));
+  meCard.appendChild(el("h2", { text: "Your name" }));
+  meCard.appendChild(el("p.muted.small", { text: "Home uses this to show tasks assigned to you. It stays on this device." }));
   meCard.appendChild(select([{ value: "", label: "— not set —" }, ...(meta.owners || []).map((o) => ({ value: o, label: o }))], getMe(), {
-    class: "me-pick wide", onchange: (e) => { setMe(e.target.value); toast(e.target.value ? `You are ${e.target.value}` : "Cleared"); } }));
+    class: "me-pick wide", "aria-label": "Who are you?",
+    onchange: (e) => { setMe(e.target.value); toast(e.target.value ? `You are ${e.target.value}` : "Cleared"); } }));
   root.appendChild(meCard);
 
   // Editable lists
   const listsCard = el("section.card.block");
-  listsCard.appendChild(el("h2", { text: "Lists" }));
-  listsCard.appendChild(el("p.muted.small", { text: "Add or remove the options used throughout the app." }));
+  listsCard.appendChild(el("h2", { text: "Choices" }));
+  listsCard.appendChild(el("p.muted.small", { text: "These are the names you can pick when you add a task. Type a name and press Enter." }));
   listsCard.appendChild(chipEditor("Categories", "categories"));
   listsCard.appendChild(chipEditor("Owners / volunteers", "owners"));
   listsCard.appendChild(chipEditor("Programs", "programs"));
@@ -385,21 +438,24 @@ function renderSettings(root) {
 
   // Dashboard widgets
   const wCard = el("section.card.block");
-  wCard.appendChild(el("h2", { text: "Dashboard widgets" }));
-  wCard.appendChild(el("p.muted.small", { text: "Show or hide each section of the dashboard." }));
+  wCard.appendChild(el("h2", { text: "What Home shows" }));
+  wCard.appendChild(el("p.muted.small", { text: "Turn a section off if your board does not use it." }));
   const widgets = meta.dashboardWidgets || {};
   const wMap = {
-    needsAttention: "“Needs attention” banner", overdue: "Overdue", dueThisWeek: "Due this week",
-    blocked: "Blocked", assignedToMe: "Assigned to me", automationFailures: "Automation issues",
-    costs: "Subscriptions & costs", credentials: "Logins to tidy up", upcoming: "Upcoming",
-    recentActivity: "Recent changes", automations: "Active automations", events: "Upcoming events",
+    needsAttention: "Needs a look", overdue: "Late tasks", dueThisWeek: "Due this week",
+    blocked: "Blocked", assignedToMe: "Assigned to me", automationFailures: "Automation problems",
+    costs: "Costs", credentials: "Logins to tidy up", upcoming: "Coming up later",
+    recentActivity: "Recent changes", automations: "Automations that are on", events: "Events",
   };
-  const wGrid = el("div.widget-grid");
+  const wGrid = el("div.setting-list");
   for (const [key, label] of Object.entries(wMap)) {
-    wGrid.appendChild(el("label.toggle", {}, [
-      el("input", { type: "checkbox", checked: widgets[key] !== false,
-        onchange: async (e) => { await Store.setMeta({ dashboardWidgets: { ...widgets, [key]: e.target.checked } }); toast("Dashboard updated"); } }),
-      el("span", { text: label }),
+    wGrid.appendChild(el("label.setting-row", {}, [
+      el("span.setting-label", { text: label }),
+      el("span.switch", {}, [
+        el("input", { type: "checkbox", checked: widgets[key] !== false,
+          onchange: async (e) => { await Store.setMeta({ dashboardWidgets: { ...widgets, [key]: e.target.checked } }); toast("Home updated"); } }),
+        el("span.slider"),
+      ]),
     ]));
   }
   wCard.appendChild(wGrid);
@@ -407,22 +463,17 @@ function renderSettings(root) {
 
   // Data & backup
   const dCard = el("section.card.block");
-  dCard.appendChild(el("h2", { text: "Data & backup" }));
-  dCard.appendChild(el("p.muted.small", { text: "Download a full backup, restore from one, merge any duplicate task rows into one, or reset to the original run book. Passwords are left out of backups unless you tick the box." }));
-  let includeCreds = false;
-  dCard.appendChild(el("label.toggle", {}, [
-    el("input", { type: "checkbox", onchange: (e) => (includeCreds = e.target.checked) }),
-    el("span", { text: "Include stored passwords in the backup file" }),
-  ]));
+  dCard.appendChild(el("h2", { text: "Backup" }));
+  dCard.appendChild(el("p.muted.small", { text: "Download a copy, restore one, combine duplicate tasks, or start over with the original list. Passwords are never included." }));
   dCard.appendChild(el("div.btn-row", {}, [
-    el("button.btn", { type: "button", text: "⬇ Export backup (JSON)", onclick: () => exportBackup(includeCreds) }),
-    el("button.btn", { type: "button", text: "⬆ Import backup", onclick: importBackup }),
-    el("button.btn", { type: "button", text: "🧹 Merge duplicate tasks", onclick: async () => {
+    el("button.btn", { type: "button", text: "Download a backup", onclick: () => exportBackup() }),
+    el("button.btn", { type: "button", text: "Restore a backup", onclick: importBackup }),
+    el("button.btn", { type: "button", text: "Combine duplicate tasks", onclick: async () => {
       const merged = await Store.dedupeTasks();
       toast(merged ? `Merged ${merged} duplicate row${merged === 1 ? "" : "s"}` : "No duplicates found", "ok");
       renderActive();
     } }),
-    el("button.btn.danger", { type: "button", text: "Reset to original run book", onclick: () => confirmDialog({
+    el("button.btn.danger", { type: "button", text: "Start over with the original tasks", onclick: () => confirmDialog({
       title: "Reset everything?", message: "All current tasks, automations, lists and templates will be replaced with the original run book. This can't be undone.",
       confirmLabel: "Reset", onConfirm: async () => { await Store.resetToSeed(); toast("Reset to original run book"); renderActive(); } }) }),
   ]));
@@ -508,7 +559,7 @@ function chipEditor(label, key) {
   values.forEach((v) => {
     chips.appendChild(el("span.edit-chip", {}, [
       el("span", { text: v }),
-      el("button.chip-x", { type: "button", title: "Remove", text: "✕", onclick: async () => {
+      el("button.chip-x", { type: "button", title: `Remove ${v}`, "aria-label": `Remove ${v}`, text: "✕", onclick: async () => {
         await Store.setMeta({ [key]: values.filter((x) => x !== v) });
         toast(`Removed "${v}"`); renderActive();
       } }),
@@ -528,14 +579,14 @@ function chipEditor(label, key) {
   return wrap;
 }
 
-function exportBackup(includeCredentials) {
-  const blob = new Blob([Store.exportJSON({ includeCredentials })], { type: "application/json" });
+function exportBackup() {
+  const blob = new Blob([Store.exportJSON()], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `jr-lions-runbook-backup-${todayISO()}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
-  toast(includeCredentials ? "Backup downloaded (with passwords)" : "Backup downloaded");
+  toast("Backup downloaded");
 }
 function importBackup() {
   const inp = document.createElement("input");
@@ -550,17 +601,39 @@ function importBackup() {
 }
 
 // ---------------------------------------------------------------------------
-// Theme
+// Theme — follows the device unless someone picks Light or Dark in Settings.
 // ---------------------------------------------------------------------------
-function applyTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  const btn = document.getElementById("theme-btn");
-  if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
-  localStorage.setItem("jrlions_theme", theme);
+const THEME_KEY = "jrlions_theme";
+function themePref() {
+  const v = localStorage.getItem(THEME_KEY);
+  return v === "light" || v === "dark" || v === "auto" ? v : "auto";
 }
-function toggleTheme() {
-  const cur = document.documentElement.getAttribute("data-theme") || "light";
-  applyTheme(cur === "light" ? "dark" : "light");
+function systemIsDark() {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function resolvedTheme() {
+  return themePref() === "auto" ? (systemIsDark() ? "dark" : "light") : themePref();
+}
+function applyTheme() {
+  const theme = resolvedTheme();
+  document.documentElement.setAttribute("data-theme", theme);
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", theme === "dark" ? "#000000" : "#f2f2f7");
+}
+function setThemePref(pref) {
+  localStorage.setItem(THEME_KEY, pref);
+  applyTheme();
+  // Status colors are chosen for the current appearance at render time.
+  if (document.getElementById("main")) renderActive();
+}
+function appearanceControl() {
+  const pref = themePref();
+  const options = [["auto", "Match device"], ["light", "Light"], ["dark", "Dark"]];
+  return el("div.segmented", { role: "radiogroup", "aria-label": "Appearance" }, options.map(([value, label]) =>
+    el("button.seg" + (pref === value ? ".on" : ""), {
+      type: "button", role: "radio", "aria-checked": pref === value ? "true" : "false",
+      text: label, onclick: () => setThemePref(value),
+    })));
 }
 
 // ---------------------------------------------------------------------------
@@ -581,7 +654,15 @@ function showGate(message) {
 }
 
 async function boot() {
-  applyTheme(localStorage.getItem("jrlions_theme") || "light");
+  applyTheme();
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  const onScheme = () => {
+    if (themePref() !== "auto") return;
+    applyTheme();
+    if (document.getElementById("main") && !isModalOpen()) renderActive();
+  };
+  if (mq.addEventListener) mq.addEventListener("change", onScheme);
+  else if (mq.addListener) mq.addListener(onScheme);
   if (isConfigured) {
     onAuth(async (user) => {
       currentUser = user;
@@ -618,10 +699,20 @@ async function start() {
   try { await Automation.runScheduled(); } catch (e) { console.error(e); }
 
   document.addEventListener("keydown", (e) => {
-    if (e.target.matches("input,textarea,select")) return;
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return;
+    if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return;
     if (e.key === "/") { e.preventDefault(); document.getElementById("global-search")?.focus(); }
-    if (e.key === "n") { e.preventDefault(); openTaskEditor(null); }
+    else if (e.key === "n") { e.preventDefault(); openTaskEditor(null); }
   });
+}
+
+function isTypingTarget(node) {
+  if (!node || node.nodeType !== 1) return false;
+  const tag = node.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  if (node.isContentEditable) return true;
+  const role = node.getAttribute("role");
+  return role === "textbox" || role === "searchbox" || role === "combobox";
 }
 
 boot();

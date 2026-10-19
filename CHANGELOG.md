@@ -5,7 +5,78 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [2.2.0] — 2026-10-19
+
+A simpler interface for parents, coaches, and board members. Every feature from
+2.1.0 is still there.
+
+### Changed
+
+- The app uses the system font, a quiet navy-and-gold palette, soft cards, and
+  large tap targets. Home has one primary action, **Add a task**. Filters and
+  sorting sit behind **Filter and sort**.
+- On a phone, sections live in a bottom tab bar. Editing opens a sheet that
+  slides up. Motion is skipped when the device asks for reduced motion.
+- Light and dark follow the phone or computer. Settings → Appearance can lock
+  it to Light or Dark.
+- Labels and empty states use plain language (“Write a message”, “You’re all
+  caught up”, “Run an event”).
+
+## [2.1.0] — 2026-10-19
+
+Security, accessibility, and starter-text fixes. Starter-task wording is **not**
+copied into a workspace that has already been seeded; see README → "Starter
+tasks on a live workspace". Stored passwords are cleared on load.
+
+### Security
+
+- **Firestore rules file.** Added `firestore.rules`. A read or write requires
+  Google sign-in **and** an email on the board allow-list. `jrlionslax44@gmail.com`
+  is the starting entry; the board fills in the rest before publishing. The
+  file does nothing until it is published in the Firebase console.
+- **`REQUIRE_SIGN_IN` only hides the page.** It already defaults to `true`. The
+  README now says so, and no longer tells admins to publish `allow read, write:
+  if true`.
+- **Passwords are not collected.** The task editor no longer has a password
+  field. It keeps the "where the login is kept" note. On load, any password
+  still stored on a task is cleared (the same wipe backups already used), and
+  backups always omit passwords. There is no "include passwords" checkbox.
+- **HTML is text unless it is explicitly sanitized.** `el(..., { html })` keeps
+  only `strong`, `em`, `code`, `br`, and a few other formatting tags, and strips
+  every attribute. A string passed to a dialog is plain text.
+- **API key.** The README tells admins to restrict the Firebase web API key to
+  `https://jchristadore-ux.github.io/*` in Google Cloud.
+
+### Accessibility
+
+- Dialogs are named with `aria-labelledby` pointing at the dialog heading.
+- Emoji-only buttons (menu, theme, more actions, remove) have accessible names.
+- Gold text on white and cream uses a darker gold that meets WCAG AA. Muted
+  text, status chips, and the local-mode badge were darkened the same way on
+  the light theme. Dark theme keeps brighter hues so they stay readable on navy.
+- `/` and `n` do not run while typing in a field, including contenteditable and
+  textbox roles, or while Ctrl/Alt/Command is held.
+
+### Changed
+
+- **Starter tasks** (`config.js` only): owner names use consistent
+  capitalization (`Mike`, `Tom/John`, `Lisa`, …), titles use title case, and
+  "EOY" is spelled out as "End of Year". Placeholder `LINK` and `N/A` websites
+  and emails are empty. No URLs or due dates were invented. The Turkey
+  Tournament URL is unchanged.
+- **Open website** is shown only when the website is an `http://` or `https://`
+  URL, in the task row and in the editor.
+- App version is **2.1.0**.
+
+### Fixed
+
+- Chrome logged a warning on the task editor because the password field was not
+  inside a form. Removing the field removes the warning.
+- README example URLs now point at
+  `https://jchristadore-ux.github.io/JrLionsDigitalRunBook/`.
+- The "Who are you?" dropdowns have an accessible name.
+
+Work below was already in the app and is versioned here for the first time.
 
 ### Added
 
