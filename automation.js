@@ -193,16 +193,16 @@ export function renderAutomations(root) {
   root.appendChild(el("div.section-head", {}, [
     el("div", {}, [
       el("h1.page-title", { text: "Automations" }),
-      el("p.page-sub", { text: "When something happens, do something automatically. No code." }),
+      el("p.page-sub", { text: "A rule that reminds someone or updates a task for you." }),
     ]),
-    el("button.btn.primary", { type: "button", text: "＋ New automation", onclick: () => openAutomationEditor(null, root) }),
+    el("button.btn.primary", { type: "button", text: "New automation", onclick: () => openAutomationEditor(null, root) }),
   ]));
 
   // Named-event firing panel
   const triggers = meta.triggers || [];
   if (triggers.length) {
     const panel = el("section.card.block");
-    panel.appendChild(el("div.card-head", {}, [el("h2", { text: "Fire an event" }), el("span.muted.small", { text: "Runs every automation listening for it" })]));
+    panel.appendChild(el("div.card-head", {}, [el("h2", { text: "Run an event" }), el("span.muted.small", { text: "Use this when something happens, like registration opening." })]));
     const row = el("div.trigger-row");
     for (const name of triggers) {
       row.appendChild(el("button.btn.ghost.sm", { type: "button", text: "▶ " + name, onclick: async () => {
@@ -220,7 +220,7 @@ export function renderAutomations(root) {
     root.appendChild(el("div.empty", {}, [
       el("div.empty-icon", { text: "⚙️" }),
       el("h3", { text: "No automations yet" }),
-      el("p", { text: "Create one to send reminders, update tasks, or kick off work automatically." }),
+      el("p", { text: "Add one when you want a reminder or a task update to happen on its own." }),
       el("button.btn.primary", { type: "button", text: "New automation", onclick: () => openAutomationEditor(null, root) }),
     ]));
     return;

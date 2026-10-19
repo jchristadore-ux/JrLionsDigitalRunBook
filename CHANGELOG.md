@@ -5,6 +5,23 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.2.0] — 2026-10-19
+
+A simpler interface for parents, coaches, and board members. Every feature from
+2.1.0 is still there.
+
+### Changed
+
+- The app uses the system font, a quiet navy-and-gold palette, soft cards, and
+  large tap targets. Home has one primary action, **Add a task**. Filters and
+  sorting sit behind **Filter and sort**.
+- On a phone, sections live in a bottom tab bar. Editing opens a sheet that
+  slides up. Motion is skipped when the device asks for reduced motion.
+- Light and dark follow the phone or computer. Settings → Appearance can lock
+  it to Light or Dark.
+- Labels and empty states use plain language (“Write a message”, “You’re all
+  caught up”, “Run an event”).
+
 ## [2.1.0] — 2026-10-19
 
 Security, accessibility, and starter-text fixes. Starter-task wording is **not**

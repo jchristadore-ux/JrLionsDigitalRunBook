@@ -182,7 +182,8 @@ compile — GitHub serves the files as-is.
 - **No-code automation builder** with safe testing and full run history.
 - **Distribution lists + email templates** with preview before sending.
 - **Activity feed** — every change is logged (never secrets).
-- **Light and dark themes**, mobile-friendly layout.
+- **Appearance follows the device** (light or dark). Change it under Settings → Appearance.
+- **Simple layout** — one main action per screen, a bottom tab bar on a phone, and sheets that slide up for editing.
 - **Keyboard shortcuts**: `/` to search, `n` for a new task.
 - **One-click backup / restore** as a JSON file.
 
@@ -190,15 +191,15 @@ compile — GitHub serves the files as-is.
 
 ## The dashboard
 
-The dashboard is the home screen and is built to be read top to bottom. Each
-widget can be turned on or off in **Settings → Dashboard widgets**:
+Home is the first screen and is built to be read top to bottom. Each
+section can be turned on or off in **Settings → What Home shows**:
 
-- **Needs Attention** — a banner of the few things that genuinely need action now.
-- **Stat cards** — Open, Overdue, Blocked, and My Open counts.
+- **Needs a look** — the few things that need action now.
+- **Stat cards** — Late, This week, Blocked, and Mine.
 - **Overdue** — past-due tasks, soonest first.
 - **Due This Week** — what's coming up in the next seven days.
 - **Blocked** — tasks waiting on an unfinished dependency, with the blocker named.
-- **Assigned to Me** — driven by the "Who are you?" picker (see below).
+- **Assigned to Me** — driven by the "Your name" picker in Settings (saved on this device).
 - **Automation Failures** — any automation runs that errored, with the message.
 - **Costs & Subscriptions** — annualized recurring spend plus one-time costs,
   with renewal flags.

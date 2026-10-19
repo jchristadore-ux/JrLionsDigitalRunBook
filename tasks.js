@@ -134,7 +134,7 @@ export const SORTS = [
   { key: "owner", label: "Owner", asc: "A–Z", desc: "Z–A", blank: (t) => !t.owner, cmp: byText("owner") },
   { key: "category", label: "Category", asc: "A–Z", desc: "Z–A", blank: (t) => !t.category, cmp: byText("category") },
   { key: "title", label: "Name", asc: "A–Z", desc: "Z–A", blank: (t) => !t.title, cmp: byText("title") },
-  { key: "manual", label: "Manual", asc: "your own order (drag rows to rearrange)", fixed: true, cmp: () => 0 },
+  { key: "manual", label: "My order", asc: "drag rows to rearrange", fixed: true, cmp: () => 0 },
 ];
 loadSort(); // after SORTS exists, so a stale saved key can be validated away
 function activeSort() { return SORTS.find((s) => s.key === sort.by) || SORTS[0]; }
@@ -169,15 +169,15 @@ export function renderTasks(root) {
 
   const filterBar = el("div.filterbar", {}, [
     select([{ value: "", label: "All categories" }, ...meta.categories.map((c) => ({ value: c, label: c }))],
-      filters.category, { title: "Filter by category", onchange: (e) => { filters.category = e.target.value; renderTasks(root); } }),
+      filters.category, { title: "Filter by category", "aria-label": "Filter by category", onchange: (e) => { filters.category = e.target.value; renderTasks(root); } }),
     select([{ value: "", label: "All owners" }, ...meta.owners.map((c) => ({ value: c, label: c }))],
-      filters.owner, { title: "Filter by owner", onchange: (e) => { filters.owner = e.target.value; renderTasks(root); } }),
+      filters.owner, { title: "Filter by owner", "aria-label": "Filter by owner", onchange: (e) => { filters.owner = e.target.value; renderTasks(root); } }),
     select([{ value: "", label: "All programs" }, ...meta.programs.map((c) => ({ value: c, label: c }))],
-      filters.program, { title: "Filter by program", onchange: (e) => { filters.program = e.target.value; renderTasks(root); } }),
+      filters.program, { title: "Filter by program", "aria-label": "Filter by program", onchange: (e) => { filters.program = e.target.value; renderTasks(root); } }),
     select([{ value: "", label: "All priorities" }, ...meta.priorities.map((c) => ({ value: c, label: c }))],
-      filters.priority, { title: "Filter by priority", onchange: (e) => { filters.priority = e.target.value; renderTasks(root); } }),
+      filters.priority, { title: "Filter by priority", "aria-label": "Filter by priority", onchange: (e) => { filters.priority = e.target.value; renderTasks(root); } }),
     select([{ value: "", label: "Any status" }, ...["Not Started", "In Progress", "Waiting", "Blocked", "Overdue", "Completed"].map((c) => ({ value: c, label: c }))],
-      filters.status, { title: "Filter by status", onchange: (e) => { filters.status = e.target.value; renderTasks(root); } }),
+      filters.status, { title: "Filter by status", "aria-label": "Filter by status", onchange: (e) => { filters.status = e.target.value; renderTasks(root); } }),
     el("label.toggle", { title: "Include archived tasks" }, [
       el("input", { type: "checkbox", checked: filters.showArchived,
         onchange: (e) => { filters.showArchived = e.target.checked; renderTasks(root); } }),
@@ -213,17 +213,26 @@ export function renderTasks(root) {
   ]);
 
   const items = filteredTasks();
+  const filterCount = ["category", "owner", "program", "priority", "status"].filter((k) => filters[k]).length
+    + (filters.showArchived ? 1 : 0);
   const head = el("div.section-head", {}, [
     el("div", {}, [
       el("h1.page-title", { text: "Tasks" }),
-      el("p.page-sub", { text: `${items.length} of ${Store.list("tasks").length} shown · ${describeSort(spec, sort.dir)}` }),
+      el("p.page-sub", { text: items.length === Store.list("tasks").length
+        ? `${items.length} tasks · ${describeSort(spec, sort.dir)}`
+        : `Showing ${items.length} of ${Store.list("tasks").length} · ${describeSort(spec, sort.dir)}` }),
     ]),
-    el("button.btn.primary", { type: "button", title: "Add a new task (n)", onclick: () => openTaskEditor(null), text: "＋ Add task" }),
+    el("button.btn.primary", { type: "button", title: "Add a task (n)", onclick: () => openTaskEditor(null), text: "Add a task" }),
+  ]);
+
+  const tools = el("details.tools", { open: filterCount > 0 }, [
+    el("summary", { text: filterCount ? `Filter and sort · ${filterCount} on` : "Filter and sort" }),
+    filterBar,
+    sortBar,
   ]);
 
   root.appendChild(head);
-  root.appendChild(filterBar);
-  root.appendChild(sortBar);
+  root.appendChild(tools);
 
   const bulkBar = el("div.bulkbar", { id: "bulkbar" });
   root.appendChild(bulkBar);
@@ -232,9 +241,11 @@ export function renderTasks(root) {
   if (!items.length) {
     root.appendChild(el("div.empty", {}, [
       el("div.empty-icon", { text: "🥍" }),
-      el("h3", { text: Store.list("tasks").length ? "No tasks match your filters" : "No tasks yet" }),
-      el("p", { text: Store.list("tasks").length ? "Try clearing the filters above, or add a new task." : "Add the first task to get your run book started." }),
-      el("button.btn.primary", { type: "button", text: "Add task", onclick: () => openTaskEditor(null) }),
+      el("h3", { text: Store.list("tasks").length ? "Nothing matches" : "No tasks yet" }),
+      el("p", { text: Store.list("tasks").length
+        ? "Open Filter and sort and clear them, or add a task."
+        : "Add the first thing the club needs to get done." }),
+      el("button.btn.primary", { type: "button", text: "Add a task", onclick: () => openTaskEditor(null) }),
     ]));
     return;
   }
@@ -246,7 +257,7 @@ export function renderTasks(root) {
   if (sort.by === "manual") enableDragOrder(list, root);
   root.appendChild(list);
   if (sort.by !== "manual") {
-    root.appendChild(el("p.list-note", { text: "Sorted automatically. Choose Manual above to drag rows into your own order." }));
+    root.appendChild(el("p.list-note", { text: "This list is sorted for you. Open Filter and sort, then choose My order, to drag tasks." }));
   }
 }
 
@@ -277,13 +288,13 @@ function taskRow(task, root) {
   });
 
   const check = el("input.row-check", {
-    type: "checkbox", checked: selection.has(task.id), "aria-label": "Select task",
+    type: "checkbox", checked: selection.has(task.id), "aria-label": `Select ${task.title || "task"}`,
     onclick: (e) => { e.stopPropagation();
       e.target.checked ? selection.add(task.id) : selection.delete(task.id);
       renderBulkBar(document.getElementById("bulkbar"), root); },
   });
 
-  const main = el("div.row-main", { onclick: () => openTaskEditor(task) }, [
+  const main = el("button.row-main", { type: "button", onclick: () => openTaskEditor(task) }, [
     el("div.row-title-line", {}, [
       manualOrder ? el("span.grip", { title: "Drag to reorder", text: "⠿" }) : null,
       el("span.row-title", { text: task.title || "(untitled)" }),
@@ -321,7 +332,7 @@ function taskRow(task, root) {
 function quickStatus(task, root) {
   const eff = statusOf(task);
   const s = select(["Not Started", "In Progress", "Waiting", "Completed"],
-    task.status, { class: "control status-pick", title: "Change status", onclick: (e) => e.stopPropagation(),
+    task.status, { class: "control status-pick", title: "Change status", "aria-label": `Status for ${task.title || "task"}`, onclick: (e) => e.stopPropagation(),
       onchange: async (e) => { await setStatus(task, e.target.value); toast("Status updated"); renderTasks(root); } });
   s.style.setProperty("--c", readableColor(STATUS_COLORS[eff] || "#888"));
   return s;
@@ -467,7 +478,7 @@ export function openTaskEditor(existing) {
     field("Related systems", fRelated),
     field("Documentation links", fLinks, "One link per line"),
     field("Associated files", fFiles),
-    el("label.toggle.auto-toggle", {}, [fAuto, el("span", { text: "Eligible for automations (reminders, owner notices)" })]),
+    el("label.toggle.auto-toggle", {}, [fAuto, el("span", { text: "Include this task in automatic reminders" })]),
     field("Notes", fNotes),
     field("Tags", fTags, "Separate with commas"),
   ]);

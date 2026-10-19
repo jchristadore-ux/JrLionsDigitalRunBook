@@ -217,6 +217,7 @@ export function openModal({ title, body, footer, width = 720, onClose }) {
     el("h2.modal-title", { id: titleId, text: title || "Dialog" }),
     el("button.icon-btn", { type: "button", "aria-label": "Close", text: "✕", onclick: () => closeModal() }),
   ]);
+  modal.appendChild(el("div.sheet-grabber", { "aria-hidden": "true" }));
   const content = el("div.modal-body");
   // A string body is plain text. Callers that need markup pass an element, or
   // build one with el(..., { html }) which sanitizes.
@@ -234,7 +235,11 @@ export function openModal({ title, body, footer, width = 720, onClose }) {
   };
   document.addEventListener("keydown", onKey);
   openOverlay.onKey = onKey;
-  setTimeout(() => { const f = modal.querySelector("input,select,textarea,button"); f && f.focus(); }, 30);
+  setTimeout(() => {
+    const f = content.querySelector("input, select, textarea")
+      || modal.querySelector(".modal-foot button, button");
+    f && f.focus();
+  }, 30);
   return { overlay, modal, content };
 }
 function trapTab(e, modal) {
