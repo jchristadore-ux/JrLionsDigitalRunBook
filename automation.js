@@ -14,7 +14,7 @@ import { Store } from "./firestore.js";
 import { Email } from "./email.js";
 import {
   el, clear, field, input, select, toast, openModal, closeModal,
-  confirmDialog, fmtDate, fmtDateTime, todayISO, uid,
+  confirmDialog, fmtDate, fmtDateTime, todayISO, uid, brandLogo,
 } from "./ui.js";
 
 const TRIGGER_LABELS = {
@@ -218,8 +218,8 @@ export function renderAutomations(root) {
   const list = Automation.all();
   if (!list.length) {
     root.appendChild(el("div.empty", {}, [
-      el("div.empty-icon", { text: "⚙️" }),
-      el("h3", { text: "No automations yet" }),
+      brandLogo(),
+      el("h2", { text: "No automations yet" }),
       el("p", { text: "Add one when you want a reminder or a task update to happen on its own." }),
       el("button.btn.primary", { type: "button", text: "New automation", onclick: () => openAutomationEditor(null, root) }),
     ]));

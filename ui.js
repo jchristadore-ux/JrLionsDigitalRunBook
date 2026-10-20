@@ -33,6 +33,18 @@ export function el(spec, attrs = {}, children = []) {
   return node;
 }
 
+// Official mark. The plate stays light in dark mode so the green and gold read.
+export function brandLogo({ large = false, alt = "" } = {}) {
+  return el("span.logo-plate" + (large ? ".lg" : ""), {}, [
+    el("img.brand-logo", {
+      src: "brand/jrlions-logo.png",
+      alt,
+      width: "1500",
+      height: "851",
+    }),
+  ]);
+}
+
 export function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

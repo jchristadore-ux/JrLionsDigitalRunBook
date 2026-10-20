@@ -15,7 +15,7 @@ import { REQUIRE_SIGN_IN } from "./config.js";
 import {
   el, clear, field, input, select, toast, openModal, closeModal, confirmDialog,
   fmtDate, fmtDateTime, fmtRelative, fmtMoney, parseMoney, daysUntil, todayISO,
-  isModalOpen, uid, readableColor,
+  isModalOpen, uid, readableColor, brandLogo,
 } from "./ui.js";
 import {
   renderTasks, openTaskEditor, statusOf, isOverdue, isBlocked, blockers,
@@ -71,11 +71,7 @@ function buildShell() {
 
   const sidebar = el("aside.sidebar", {}, [
     el("div.brand", {}, [
-      el("div.brand-mark", { text: "🦁", "aria-hidden": "true" }),
-      el("div", {}, [
-        el("div.brand-name", { text: "Jr Lions" }),
-        el("div.brand-sub", { text: "Lacrosse" }),
-      ]),
+      brandLogo({ alt: "Jr Lions Lacrosse" }),
     ]),
     el("nav.nav", { id: "nav", "aria-label": "Sections" }),
     el("div.side-foot", {}, [
@@ -86,6 +82,9 @@ function buildShell() {
   ]);
 
   const topbar = el("header.topbar", {}, [
+    el("span.logo-plate.header-logo", {}, [
+      el("img.brand-logo", { src: "brand/jrlions-logo.png", alt: "Jr Lions Lacrosse", width: "1500", height: "851" }),
+    ]),
     el("div.search-wrap", {}, [
       el("span.search-ico", { text: "🔍", "aria-hidden": "true" }),
       el("input.search", {
@@ -642,9 +641,9 @@ function appearanceControl() {
 function showGate(message) {
   const app = document.getElementById("app");
   clear(app);
-  app.appendChild(el("div.gate", {}, [
+  app.appendChild(el("main.gate", {}, [
     el("div.gate-card", {}, [
-      el("div.brand-mark.big", { text: "🦁" }),
+      brandLogo({ large: true, alt: "Jr Lions Lacrosse" }),
       el("h1", { text: "Jr Lions Lacrosse Run Book" }),
       el("p.muted", { text: message }),
       el("button.btn.primary", { type: "button", text: "Sign in with Google",

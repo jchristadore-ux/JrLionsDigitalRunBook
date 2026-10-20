@@ -14,7 +14,7 @@ import { Store, taskKey } from "./firestore.js";
 import {
   el, clear, field, input, textarea, select, toast, openModal, closeModal,
   confirmDialog, fmtDate, fmtRelative, fmtMoney, parseMoney, todayISO,
-  nextRecurrence, isEmail, isUrl, uid, usableWebsite, readableColor,
+  nextRecurrence, isEmail, isUrl, uid, usableWebsite, readableColor, brandLogo,
 } from "./ui.js";
 import { STATUS_COLORS, PRIORITY_COLORS, RECURRENCE_OPTIONS } from "./config.js";
 import { Automation } from "./automation.js";
@@ -240,8 +240,8 @@ export function renderTasks(root) {
 
   if (!items.length) {
     root.appendChild(el("div.empty", {}, [
-      el("div.empty-icon", { text: "🥍" }),
-      el("h3", { text: Store.list("tasks").length ? "Nothing matches" : "No tasks yet" }),
+      brandLogo(),
+      el("h2", { text: Store.list("tasks").length ? "Nothing matches" : "No tasks yet" }),
       el("p", { text: Store.list("tasks").length
         ? "Open Filter and sort and clear them, or add a task."
         : "Add the first thing the club needs to get done." }),

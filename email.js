@@ -24,7 +24,7 @@ import { Store } from "./firestore.js";
 import { EMAIL_DELIVERY } from "./config.js";
 import {
   el, clear, field, input, textarea, select, toast, openModal, closeModal,
-  confirmDialog, fmtDateTime, isEmail, uid,
+  confirmDialog, fmtDateTime, isEmail, uid, brandLogo,
 } from "./ui.js";
 
 const TEMPLATE_VARS = ["{{TaskName}}", "{{DueDate}}", "{{Owner}}", "{{Notes}}", "{{Category}}", "{{Program}}"];
@@ -207,7 +207,10 @@ export function renderEmail(root) {
       ]),
     ]));
   }
-  if (!Email.lists().length) listGrid.appendChild(el("p.muted.small", { text: "No groups yet. A group lets you email several people at once." }));
+  if (!Email.lists().length) listGrid.appendChild(el("div.empty", {}, [
+    brandLogo(),
+    el("p", { text: "No groups yet. A group lets you email several people at once." }),
+  ]));
   listsCard.appendChild(listGrid);
   root.appendChild(listsCard);
 
@@ -232,7 +235,10 @@ export function renderEmail(root) {
       ]),
     ]));
   }
-  if (!Email.templates().length) tplGrid.appendChild(el("p.muted.small", { text: "No templates yet. Save a message you send often, like a practice reminder." }));
+  if (!Email.templates().length) tplGrid.appendChild(el("div.empty", {}, [
+    brandLogo(),
+    el("p", { text: "No templates yet. Save a message you send often, like a practice reminder." }),
+  ]));
   tplCard.appendChild(tplGrid);
   root.appendChild(tplCard);
 
@@ -241,7 +247,10 @@ export function renderEmail(root) {
   outCard.appendChild(el("div.card-head", {}, [el("h2", { text: "Outbox" }), el("span.muted.small", { text: "Most recent first" })]));
   const out = Email.outbox();
   if (!out.length) {
-    outCard.appendChild(el("p.muted", { text: "Nothing sent yet. Write a message, or run an automation, and it will show up here." }));
+    outCard.appendChild(el("div.empty", {}, [
+      brandLogo(),
+      el("p", { text: "Nothing sent yet. Write a message, or run an automation, and it will show up here." }),
+    ]));
   } else {
     const tbl = el("div.outbox");
     for (const e of out.slice(0, 40)) {
