@@ -105,6 +105,12 @@ let redirectStarted = false;
 function readFlag() {
   try { return sessionStorage.getItem(REDIRECT_FLAG) === "1"; } catch { return false; }
 }
+
+// True only while this tab is returning from a Google redirect. A normal visit
+// is false, so the sign-in screen can paint before getRedirectResult returns.
+export function hasPendingRedirect() {
+  return readFlag();
+}
 function writeFlag(on) {
   try {
     if (on) sessionStorage.setItem(REDIRECT_FLAG, "1");

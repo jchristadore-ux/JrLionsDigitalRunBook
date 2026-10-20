@@ -175,7 +175,7 @@ The board site is <https://jrlionsrunbook.vercel.app/>. It deploys from the
 There is nothing to compile. Pushing `main` publishes the HTML, CSS, and JS
 as they are.
 
-`vercel.json` does two jobs:
+`vercel.json` does three jobs:
 
 - It proxies `/__/auth/:path*` to
   `https://jrlionsrunbook.firebaseapp.com/__/auth/:path*`. The browser stays
@@ -184,10 +184,13 @@ as they are.
   Open <https://jrlionsrunbook.vercel.app/__/auth/handler> after a deploy; it
   should load Firebase's handler, not a 404.
 - It sends short cache headers on the page and the unstamped JS and CSS, a
-  one-day cache on `/brand/*`, and `no-store` on the auth proxy. It does
-  **not** set `X-Frame-Options: DENY` or `Cross-Origin-Opener-Policy:
-  same-origin`. The sign-in helper has to be framed by this site, and that
-  opener policy breaks the Google popup.
+  one-day cache on `/brand/*`, and `no-store` on the auth proxy.
+- `/` and `/index.html` send a Content-Security-Policy with
+  `frame-ancestors 'self'`. That policy allows Firebase, Google sign-in, and
+  EmailJS. `/__/auth/*` does **not** get it, so the sign-in helper can still
+  be framed by this site. The file does **not** set `X-Frame-Options: DENY`
+  or `Cross-Origin-Opener-Policy: same-origin`. That opener policy breaks the
+  Google popup.
 
 ### Console steps only the owner can do
 

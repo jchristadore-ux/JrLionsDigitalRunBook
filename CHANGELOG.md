@@ -5,6 +5,30 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.3.1] — 2026-10-20
+
+### Fixed
+
+- Home dashboard cards stay inside the phone viewport at 375, 390, and 430
+  CSS pixels. The stat grid and dashboard columns use `minmax(0, 1fr)`, so a
+  long task line cannot widen the page.
+- The sign-in screen paints as soon as the page's script runs when no Google
+  redirect is pending. `getRedirectResult` still runs, and a return from
+  Google still waits on the loading screen. A missing result, an error, or
+  the 8 second timeout still replaces that screen with the error and
+  **Try again**. A normal signed-out visit still says **Sign in with Google**.
+- The logo is served as resized WebP and PNG at 240 and 480 pixels wide, with
+  `srcset`. `brand/jrlions-logo.png` stays the `img` `src` fallback.
+
+### Added
+
+- `/` and `/index.html` send a Content-Security-Policy that includes
+  `frame-ancestors 'self'`. The policy allows this site's scripts, Firebase
+  (`www.gstatic.com`, Google APIs, `firebaseapp.com`), Google sign-in, and
+  EmailJS (`api.emailjs.com`). `/__/auth/*` does not receive that policy, so
+  the sign-in helper stays frameable. `X-Frame-Options` and
+  `Cross-Origin-Opener-Policy` stay unset.
+
 ## [2.3.0] — 2026-10-20
 
 The run book is hosted at <https://jrlionsrunbook.vercel.app/>. Google sign-in

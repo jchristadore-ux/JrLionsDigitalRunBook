@@ -34,15 +34,25 @@ export function el(spec, attrs = {}, children = []) {
 }
 
 // Official mark. The plate stays light in dark mode so the green and gold read.
-export function brandLogo({ large = false, alt = "" } = {}) {
-  return el("span.logo-plate" + (large ? ".lg" : ""), {}, [
-    el("img.brand-logo", {
-      src: "brand/jrlions-logo.png",
-      alt,
-      width: "1500",
-      height: "851",
-    }),
-  ]);
+// Resized WebP/PNG are preferred. The original PNG is the src fallback.
+export function brandLogo({ large = false, alt = "", plateClass = "" } = {}) {
+  const img = el("img.brand-logo", {
+    src: "brand/jrlions-logo.png",
+    alt,
+    width: "480",
+    height: "272",
+    decoding: "async",
+    srcset: "brand/jrlions-logo-240.png 240w, brand/jrlions-logo-480.png 480w",
+    sizes: "240px",
+  });
+  if (large) img.setAttribute("fetchpriority", "high");
+  const source = el("source", {
+    type: "image/webp",
+    srcset: "brand/jrlions-logo-240.webp 240w, brand/jrlions-logo-480.webp 480w",
+    sizes: "240px",
+  });
+  const plate = "span.logo-plate" + (large ? ".lg" : "") + (plateClass ? "." + plateClass : "");
+  return el(plate, {}, [el("picture", {}, [source, img])]);
 }
 
 export function escapeHtml(s) {

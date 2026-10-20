@@ -10,7 +10,7 @@
 // =============================================================================
 
 import { Store } from "./firestore.js";
-import { consumeAuthProblem, isConfigured, onAuth, signIn, signOutUser, whenAuthReady } from "./firebase.js";
+import { consumeAuthProblem, hasPendingRedirect, isConfigured, onAuth, signIn, signOutUser, whenAuthReady } from "./firebase.js";
 import { REQUIRE_SIGN_IN } from "./config.js";
 import {
   el, clear, field, input, select, toast, openModal, closeModal, confirmDialog,
@@ -82,9 +82,7 @@ function buildShell() {
   ]);
 
   const topbar = el("header.topbar", {}, [
-    el("span.logo-plate.header-logo", {}, [
-      el("img.brand-logo", { src: "brand/jrlions-logo.png", alt: "Jr Lions Lacrosse", width: "1500", height: "851" }),
-    ]),
+    brandLogo({ alt: "Jr Lions Lacrosse", plateClass: "header-logo" }),
     el("div.search-wrap", {}, [
       el("span.search-ico", { text: "🔍", "aria-hidden": "true" }),
       el("input.search", {
@@ -656,6 +654,14 @@ function appearanceControl() {
 // ---------------------------------------------------------------------------
 function showGate(message, problem) {
   const app = document.getElementById("app");
+  const existing = app && app.querySelector(".gate");
+  if (existing) {
+    const err = existing.querySelector(".gate-error");
+    const button = existing.querySelector("button.btn.primary");
+    const want = problem ? "Try again" : "Sign in with Google";
+    const sameError = problem ? !!(err && err.textContent === problem) : !err;
+    if (button && button.textContent === want && sameError) return;
+  }
   clear(app);
   app.appendChild(el("main.gate", {}, [
     el("div.gate-card", {}, [
@@ -687,32 +693,51 @@ async function boot() {
       .then((regs) => { for (const reg of regs) reg.unregister(); })
       .catch(() => {});
   }
-  if (isConfigured) {
-    let problem = null;
-    const stopWaiting = setTimeout(() => {
-      if (document.querySelector(".boot")) {
-        showGate("Please sign in to open the run book.", "Sign-in is taking too long. Try again.");
-      }
-    }, 10000);
-    try { await whenAuthReady(); }
-    catch (e) {
-      console.error(e);
-      problem = (e && e.message) || "Sign-in did not finish. Try again.";
+  if (!isConfigured) {
+    await start();
+    return;
+  }
+
+  // A normal visit has no redirect in flight. Paint the sign-in button before
+  // getRedirectResult. A return from Google keeps the loading screen until
+  // that result, an error, or the timeout.
+  const pending = hasPendingRedirect();
+  const gateMessage = "Please sign in to open the run book.";
+  if (REQUIRE_SIGN_IN && !pending) showGate(gateMessage);
+
+  let problem = null;
+  const stopWaiting = setTimeout(() => {
+    if (document.querySelector(".boot")) {
+      problem = "Sign-in is taking too long. Try again.";
+      showGate(gateMessage, problem);
+    }
+  }, 10000);
+
+  const ready = whenAuthReady().then(
+    () => consumeAuthProblem(),
+    (err) => {
+      console.error(err);
+      return (err && err.message) || "Sign-in did not finish. Try again.";
+    },
+  );
+
+  onAuth(async (user) => {
+    currentUser = user;
+    if (REQUIRE_SIGN_IN && !user) {
+      if (document.querySelector(".boot")) return;
+      showGate(gateMessage, problem);
+      return;
     }
     clearTimeout(stopWaiting);
-    problem = problem || consumeAuthProblem();
-    onAuth(async (user) => {
-      currentUser = user;
-      if (REQUIRE_SIGN_IN && !user) {
-        showGate("Please sign in to open the run book.", problem);
-        problem = null;
-        return;
-      }
-      await start();
-    });
-  } else {
     await start();
+  });
+
+  try {
+    problem = await ready;
+  } finally {
+    clearTimeout(stopWaiting);
   }
+  if (REQUIRE_SIGN_IN && !currentUser) showGate(gateMessage, problem);
 }
 
 let started = false;

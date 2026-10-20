@@ -32,7 +32,10 @@
   <div id="app">
     <div class="boot">
       <span class="logo-plate lg">
-        <img class="brand-logo" src="./brand/jrlions-logo.png" alt="Jr Lions Lacrosse" width="1500" height="851" />
+        <picture>
+          <source type="image/webp" srcset="./brand/jrlions-logo-240.webp 240w, ./brand/jrlions-logo-480.webp 480w" sizes="240px" />
+          <img class="brand-logo" src="./brand/jrlions-logo.png" srcset="./brand/jrlions-logo-240.png 240w, ./brand/jrlions-logo-480.png 480w" sizes="240px" alt="Jr Lions Lacrosse" width="480" height="272" fetchpriority="high" />
+        </picture>
       </span>
       <p>Loading the run book…</p>
     </div>
