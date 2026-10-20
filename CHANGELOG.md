@@ -12,9 +12,14 @@ A simpler interface for parents, coaches, and board members. Every feature from
 
 ### Changed
 
-- The app uses the system font, a quiet navy-and-gold palette, soft cards, and
-  large tap targets. Home has one primary action, **Add a task**. Filters and
-  sorting sit behind **Filter and sort**.
+- The app uses the system font, the official Jr Lions green (`#115f30`) and
+  gold (`#f3c811`), soft cards, and large tap targets. Green is for actions,
+  headings, and the selected tab. Gold is a fill or border. Home has one
+  primary action, **Add a task**. Filters and sorting sit behind **Filter and sort**.
+- The official logo is on the sign-in screen, the sidebar, the phone header,
+  and empty states. Favicon, Apple touch icon, manifest icons, and Open Graph
+  / Twitter preview images are generated from it. In dark mode the logo sits
+  on a light plate.
 - On a phone, sections live in a bottom tab bar. Editing opens a sheet that
   slides up. Motion is skipped when the device asks for reduced motion.
 - Light and dark follow the phone or computer. Settings → Appearance can lock
