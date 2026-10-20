@@ -688,7 +688,10 @@ function showGate(message, problem) {
   const app = document.getElementById("app");
   const existing = app && app.querySelector(".gate");
   const want = problem ? "Try again" : "Sign in with Google";
-  if (existing) {
+  // The HTML placeholder (.gate.boot) has the same label and no click handler.
+  // Always replace it. A later call with the same label still returns early so
+  // a click already in flight is not torn down.
+  if (existing && !existing.classList.contains("boot")) {
     const err = existing.querySelector(".gate-error");
     const button = existing.querySelector("button.gate-signin");
     const label = button ? button.textContent.replace(/\s+/g, " ").trim() : "";

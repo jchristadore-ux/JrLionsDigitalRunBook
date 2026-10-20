@@ -5,6 +5,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.1] — 2026-10-20
+
+### Fixed
+
+- A fresh visit's **Sign in with Google** button works. The first paint is a
+  placeholder gate (class `boot`) with no click handler. `showGate()` saw that
+  label and returned early, so the working button was never installed. The
+  placeholder is always replaced. A later call with the same label still
+  returns early, and a pending redirect still ends on **Try again**.
+
 ## [2.4.0] — 2026-10-20
 
 ### Changed
