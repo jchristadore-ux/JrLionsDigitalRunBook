@@ -24,6 +24,38 @@ import { firebaseConfig } from "./config.js";
 const REDIRECT_FLAG = "jrlions_auth_redirect";
 const AUTH_READY_MS = 8000;
 
+let authProblem = null;
+
+export function consumeAuthProblem() {
+  const problem = authProblem;
+  authProblem = null;
+  return problem;
+}
+
+function rememberProblem(message) {
+  authProblem = message || "Sign-in did not finish. Try again.";
+}
+
+function authMessage(err) {
+  if (err && err.code === "auth/timeout") return "Sign-in is taking too long. Try again.";
+  if (err && err.message) return err.message;
+  return "Sign-in did not finish. Try again.";
+}
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const err = new Error("Sign-in is taking too long. Try again.");
+      err.code = "auth/timeout";
+      reject(err);
+    }, ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
 function looksConfigured(cfg) {
   return !!(cfg && cfg.apiKey && !cfg.apiKey.startsWith("YOUR_") &&
     cfg.projectId && !cfg.projectId.startsWith("YOUR_"));
@@ -105,15 +137,28 @@ function canRedirect() {
 
 async function settleAuth() {
   let user = null;
+  const hadRedirect = readFlag();
+  const pendingResult = getRedirectResult(auth);
+  // A hang must not become an unhandled rejection after the timeout wins.
+  pendingResult.catch(() => {});
   try {
-    const result = await getRedirectResult(auth);
+    const result = await withTimeout(pendingResult, AUTH_READY_MS);
     if (result && result.user) user = result.user;
+    else if (hadRedirect) rememberProblem("Sign-in did not finish. Try again.");
   } catch (err) {
     console.error("Redirect sign-in did not finish.", err);
+    rememberProblem(authMessage(err));
   } finally {
     writeFlag(false);
   }
   if (user || (auth && auth.currentUser)) return user || auth.currentUser;
+  // The redirect result already failed or timed out. Don't wait another full
+  // interval before showing the sign-in button.
+  if (authProblem) return waitForUser(1500);
+  return waitForUser(AUTH_READY_MS);
+}
+
+function waitForUser(waitMs) {
   return new Promise((resolve) => {
     let settled = false;
     let unsub = () => {};
@@ -125,7 +170,7 @@ async function settleAuth() {
       queueMicrotask(() => { try { unsub(); } catch { /* already removed */ } });
       resolve(value || null);
     };
-    timer = setTimeout(() => finish(auth.currentUser), AUTH_READY_MS);
+    timer = setTimeout(() => finish(auth.currentUser), waitMs);
     // A synchronous first callback only schedules the unsubscribe, so `unsub`
     // is the real listener by the time that microtask runs.
     unsub = onAuthStateChanged(auth, (next) => finish(next), () => finish(auth.currentUser));

@@ -10,7 +10,7 @@
 // =============================================================================
 
 import { Store } from "./firestore.js";
-import { isConfigured, onAuth, signIn, signOutUser, whenAuthReady } from "./firebase.js";
+import { consumeAuthProblem, isConfigured, onAuth, signIn, signOutUser, whenAuthReady } from "./firebase.js";
 import { REQUIRE_SIGN_IN } from "./config.js";
 import {
   el, clear, field, input, select, toast, openModal, closeModal, confirmDialog,
@@ -654,7 +654,7 @@ function appearanceControl() {
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
-function showGate(message) {
+function showGate(message, problem) {
   const app = document.getElementById("app");
   clear(app);
   app.appendChild(el("main.gate", {}, [
@@ -662,7 +662,12 @@ function showGate(message) {
       brandLogo({ large: true, alt: "Jr Lions Lacrosse" }),
       el("h1", { text: "Jr Lions Lacrosse Run Book" }),
       el("p.muted", { text: message }),
-      el("button.btn.primary", { type: "button", text: "Sign in with Google", onclick: onSignInClick }),
+      problem ? el("p.gate-error", { role: "alert", text: problem }) : null,
+      el("button.btn.primary", {
+        type: "button",
+        text: problem ? "Try again" : "Sign in with Google",
+        onclick: onSignInClick,
+      }),
     ]),
   ]));
 }
@@ -683,11 +688,26 @@ async function boot() {
       .catch(() => {});
   }
   if (isConfigured) {
+    let problem = null;
+    const stopWaiting = setTimeout(() => {
+      if (document.querySelector(".boot")) {
+        showGate("Please sign in to open the run book.", "Sign-in is taking too long. Try again.");
+      }
+    }, 10000);
     try { await whenAuthReady(); }
-    catch (e) { console.error(e); }
+    catch (e) {
+      console.error(e);
+      problem = (e && e.message) || "Sign-in did not finish. Try again.";
+    }
+    clearTimeout(stopWaiting);
+    problem = problem || consumeAuthProblem();
     onAuth(async (user) => {
       currentUser = user;
-      if (REQUIRE_SIGN_IN && !user) { showGate("Please sign in to open the run book."); return; }
+      if (REQUIRE_SIGN_IN && !user) {
+        showGate("Please sign in to open the run book.", problem);
+        problem = null;
+        return;
+      }
       await start();
     });
   } else {

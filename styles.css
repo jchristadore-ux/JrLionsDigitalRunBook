@@ -101,6 +101,7 @@ button, input, select, textarea { font-family: inherit; }
   overflow: hidden; box-sizing: border-box;
 }
 .gate-card h1 { margin: 8px 0; font-size: 28px; font-weight: 700; }
+.gate-error { color: var(--red); margin: 4px 0 0; font-size: 15px; }
 .gate-card .btn { width: 100%; justify-content: center; margin-top: 8px; }
 .brand-mark.big { font-size: 56px; }
 

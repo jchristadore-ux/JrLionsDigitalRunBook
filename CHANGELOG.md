@@ -22,7 +22,9 @@ uses that host so the handler is first-party.
 - Sign-in waits until `getRedirectResult` and the first auth state finish,
   tries a popup once, and falls back to a single redirect when the browser
   blocks the popup. A second tap while that is in progress does not start
-  another redirect.
+  another redirect. If the redirect result is missing, errors, or takes
+  longer than 8 seconds, the loading screen is replaced by the error and
+  **Try again**. A normal signed-out visit still shows **Sign in with Google**.
 - Open Graph, Twitter, and the web manifest point at
   `https://jrlionsrunbook.vercel.app/`. The README deploy steps are Vercel,
   including the Firebase authorized domain, the OAuth redirect URI

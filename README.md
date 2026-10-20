@@ -578,6 +578,14 @@ what a fresh workspace starts with.
 
 ## Troubleshooting
 
+**The phone stays on "Loading the run book…".**
+Sign-in stops waiting after a few seconds and shows what went wrong, with
+**Try again**. A fresh visit with nobody signed in shows **Sign in with
+Google** instead. If Google's own page keeps reloading, add the OAuth
+redirect URI `https://jrlionsrunbook.vercel.app/__/auth/handler` (see
+[Deploying to Vercel](#deploying-to-vercel)) and confirm
+`/__/auth/handler` is no longer a 404.
+
 **The page is blank.**
 You probably opened it via `file://` in a browser that blocks modules. Serve it
 with `python3 -m http.server 8000` and visit `http://localhost:8000`, or open
