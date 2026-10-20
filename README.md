@@ -4,7 +4,7 @@ A simple, shared workspace for the Jr Lions board. It keeps every recurring job,
 deadline, login pointer, vendor, cost, and automated reminder in one place, so
 nothing falls through the cracks when volunteers change from season to season.
 
-It runs as a website (hosted free on GitHub Pages). There is **no app to
+It runs as a website at <https://jrlionsrunbook.vercel.app/>. There is **no app to
 install**, no spreadsheet to email around, and no code to touch for everyday use.
 
 ---
@@ -15,7 +15,7 @@ install**, no spreadsheet to email around, and no code to touch for everyday use
 - [Two ways to run it](#two-ways-to-run-it)
 - [Quick start (local, 60 seconds)](#quick-start-local-60-seconds)
 - [Configuration — connecting Firebase (shared mode)](#configuration--connecting-firebase-shared-mode)
-- [Deploying to GitHub Pages](#deploying-to-github-pages)
+- [Deploying to Vercel](#deploying-to-vercel)
 - [Key features](#key-features)
 - [The dashboard](#the-dashboard)
 - [Sorting and filtering the task list](#sorting-and-filtering-the-task-list)
@@ -112,6 +112,12 @@ project. This is a one-time setup.
    };
    ```
    As soon as these are real (not `YOUR_…`), the app runs in shared mode.
+
+   Leave `authDomain` as `your-project.firebaseapp.com` (this project:
+   `jrlionsrunbook.firebaseapp.com`). On the live site the app replaces it
+   with the page's own host, `jrlionsrunbook.vercel.app`, so Google sign-in
+   stays on that host. On `localhost` and `127.0.0.1` it keeps the Firebase
+   host, because a local static server has no `/__/auth` proxy.
 5. Publish the Firestore rules in **`firestore.rules`**. Those rules allow a
    read or write only when **both** of these are true:
 
@@ -142,9 +148,13 @@ project. This is a one-time setup.
    Cloud Console open **APIs & Services → Credentials**, edit the browser key,
    and under **Application restrictions** choose **HTTP referrers**. Allow:
 
-   - `https://jchristadore-ux.github.io/*`
+   - `https://jrlionsrunbook.vercel.app/*`
    - `http://localhost:8000/*` and `http://127.0.0.1:8000/*` if you test on
      your own computer
+
+   Remove any older `github.io` referrer once the board is using the Vercel
+   site. The key stays in the page source; the referrer list is what keeps
+   other websites from using it.
 
 7. Reload the app. Settings should now show a Cloud connection. The first load
    seeds the shared workspace with the board's tasks.
@@ -155,17 +165,55 @@ board from the same Firebase project.
 
 ---
 
-## Deploying to GitHub Pages
+## Deploying to Vercel
 
-1. Put this folder in a GitHub repository (e.g. `jr-lions-runbook`).
-2. In the repo, go to **Settings → Pages**.
-3. Under **Build and deployment**, set **Source** to **Deploy from a branch**,
-   pick your branch (usually `main`) and the **/ (root)** folder. Save.
-4. Wait a minute; GitHub gives you a URL like
-   `https://jchristadore-ux.github.io/JrLionsDigitalRunBook/`. Share that with the board.
+The board site is <https://jrlionsrunbook.vercel.app/>. It deploys from the
+`main` branch of this repository. The project is a static site: framework
+**Other**, root directory `.`, no build command, and no output directory.
+`vercel.json` is the only hosting config.
 
-Because the app is plain HTML/CSS/JS with no build step, there is nothing to
-compile — GitHub serves the files as-is.
+There is nothing to compile. Pushing `main` publishes the HTML, CSS, and JS
+as they are.
+
+`vercel.json` does two jobs:
+
+- It proxies `/__/auth/:path*` to
+  `https://jrlionsrunbook.firebaseapp.com/__/auth/:path*`. The browser stays
+  on `jrlionsrunbook.vercel.app` while Firebase serves the sign-in handler.
+  That proxy is required for `signInWithRedirect` on Safari and Chrome.
+  Open <https://jrlionsrunbook.vercel.app/__/auth/handler> after a deploy; it
+  should load Firebase's handler, not a 404.
+- It sends short cache headers on the page and the unstamped JS and CSS, a
+  one-day cache on `/brand/*`, and `no-store` on the auth proxy. It does
+  **not** set `X-Frame-Options: DENY` or `Cross-Origin-Opener-Policy:
+  same-origin`. The sign-in helper has to be framed by this site, and that
+  opener policy breaks the Google popup.
+
+### Console steps only the owner can do
+
+Do these once, in this order, for `jrlionsrunbook.vercel.app`. Repeat the
+same three entries for any other hostname you actually sign in on (a preview
+URL, for example). `localhost` is already allowed by Firebase.
+
+1. **Firebase → Authentication → Settings → Authorized domains.** Add
+   `jrlionsrunbook.vercel.app`.
+2. **Google Cloud Console → APIs & Services → Credentials → the OAuth 2.0
+   Client ID** that Firebase created for the web app (often named
+   "Web client (auto created by Google Service)"). Add:
+   - Authorized JavaScript origins: `https://jrlionsrunbook.vercel.app`
+   - Authorized redirect URIs: `https://jrlionsrunbook.vercel.app/__/auth/handler`
+3. **Google Cloud Console → APIs & Services → Credentials → the browser API
+   key** (the key in `config.js`). Application restrictions → HTTP referrers:
+   - `https://jrlionsrunbook.vercel.app/*`
+   - `http://localhost:8000/*`
+   - `http://127.0.0.1:8000/*`
+
+After the board is only using Vercel, remove `jchristadore-ux.github.io` from
+Authorized domains, from that OAuth client's JavaScript origins and redirect
+URIs, and from the API key referrers.
+
+Sign-in still depends on the earlier Firebase steps: Google provider turned
+on, `firestore.rules` published, and each board email on the allow-list.
 
 ---
 
@@ -353,10 +401,9 @@ automation — sends on its own.
 ### Step 5 — Allow your site to send (security)
 1. In **Account → Security**, keep **"Use Private Key"** turned **off** (the run
    book sends from the browser with the Public Key only).
-2. If an **Allowed Origins / domains** box is shown, add the address where the run
-   book is hosted, e.g. `https://jchristadore-ux.github.io` (the full site is
-   `https://jchristadore-ux.github.io/JrLionsDigitalRunBook/`; add
-   `http://localhost:8000` if you test locally). Leaving it blank also works but is less secure.
+2. If an **Allowed Origins / domains** box is shown, add
+   `https://jrlionsrunbook.vercel.app` (and `http://localhost:8000` if you test
+   locally). Leaving it blank also works but is less secure.
 
 ### Step 6 — Turn it on in the run book
 You have two equivalent options:
@@ -446,8 +493,10 @@ This tool is built for a small, trusted board, with sensible defaults:
   `REQUIRE_SIGN_IN` defaults to `true` and only hides the page until someone
   signs in. Publish `firestore.rules` so Firestore itself requires Google
   sign-in **and** an email on the board allow-list. Restrict the web API key
-  to `https://jchristadore-ux.github.io/*` in Google Cloud. Steps are in
-  [Configuration](#configuration--connecting-firebase-shared-mode).
+  to `https://jrlionsrunbook.vercel.app/*` in Google Cloud, and add that host
+  to Firebase Authorized domains and the OAuth redirect URI
+  `https://jrlionsrunbook.vercel.app/__/auth/handler`. Steps are in
+  [Deploying to Vercel](#deploying-to-vercel).
 
 The dashboard's **Credentials to tidy up** widget lists tasks that name a
 username but not where that login is kept, so you can point them at the
@@ -493,10 +542,13 @@ Passwords are the exception: they are cleared automatically the first time
 ```
 jr-lions-runbook/
 ├── index.html        App shell; loads the ES modules.
+├── vercel.json       Vercel headers, caching, and the /__/auth proxy.
+├── site.webmanifest  Home-screen name and icons for jrlionsrunbook.vercel.app.
 ├── firestore.rules   Firestore rules to publish (sign-in + email allow-list).
 ├── styles.css        Full design system (tokens, light/dark, components).
 ├── config.js         ⚙️ EDIT ME: Firebase keys, workspace, seed data, defaults.
 ├── firebase.js       Firebase init + Google sign-in helpers.
+├── brand/            Logo, favicon, and the link-preview image.
 ├── firestore.js      The data Store: state, sync, seeding, logging, export/import.
 ├── ui.js             Dependency-free UI helpers (modals, toasts, formatting).
 ├── tasks.js          Task list, the full task editor, status logic, recurrence.
@@ -528,8 +580,8 @@ what a fresh workspace starts with.
 
 **The page is blank.**
 You probably opened it via `file://` in a browser that blocks modules. Serve it
-with `python3 -m http.server 8000` and visit `http://localhost:8000`, or deploy
-to GitHub Pages.
+with `python3 -m http.server 8000` and visit `http://localhost:8000`, or open
+<https://jrlionsrunbook.vercel.app/>.
 
 **It says Local mode but I want shared mode.**
 Your `config.js` Firebase values are still placeholders (`YOUR_…`). Fill in all

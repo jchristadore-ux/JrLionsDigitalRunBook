@@ -8,7 +8,7 @@
 //    the message itself, straight from the browser, with no human in the loop.
 //    Automations and due-soon reminders then truly send on their own.
 //
-//  • MANUAL (fallback) — with nothing configured, a static GitHub Pages site
+//  • MANUAL (fallback) — with nothing configured, this static site
 //    can't run a mail server, so a message is "queued" to the Outbox and a
 //    volunteer clicks "Open draft" to hand it to their own email app (mailto).
 //

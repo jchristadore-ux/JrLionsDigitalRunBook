@@ -5,6 +5,30 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.3.0] — 2026-10-20
+
+The run book is hosted at <https://jrlionsrunbook.vercel.app/>. Google sign-in
+uses that host so the handler is first-party.
+
+### Changed
+
+- `vercel.json` proxies `/__/auth/:path*` to
+  `https://jrlionsrunbook.firebaseapp.com/__/auth/:path*` and sets short cache
+  headers on the page and scripts, a one-day cache on `/brand/*`, and
+  `no-store` on the auth proxy. Frame-blocking and opener-policy headers are
+  left unset so the sign-in helper can run.
+- On any host other than localhost, `authDomain` is the page's own host.
+  Loopback still uses `jrlionsrunbook.firebaseapp.com`.
+- Sign-in waits until `getRedirectResult` and the first auth state finish,
+  tries a popup once, and falls back to a single redirect when the browser
+  blocks the popup. A second tap while that is in progress does not start
+  another redirect.
+- Open Graph, Twitter, and the web manifest point at
+  `https://jrlionsrunbook.vercel.app/`. The README deploy steps are Vercel,
+  including the Firebase authorized domain, the OAuth redirect URI
+  `https://jrlionsrunbook.vercel.app/__/auth/handler`, and the API key
+  referrer.
+
 ## [2.2.0] — 2026-10-19
 
 A simpler interface for parents, coaches, and board members. Every feature from

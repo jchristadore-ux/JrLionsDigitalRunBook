@@ -10,7 +10,7 @@
 // =============================================================================
 
 import { Store } from "./firestore.js";
-import { isConfigured, onAuth, signIn, signOutUser } from "./firebase.js";
+import { isConfigured, onAuth, signIn, signOutUser, whenAuthReady } from "./firebase.js";
 import { REQUIRE_SIGN_IN } from "./config.js";
 import {
   el, clear, field, input, select, toast, openModal, closeModal, confirmDialog,
@@ -122,8 +122,24 @@ function authButton() {
       el("span.avatar", { text: who[0].toUpperCase(), "aria-hidden": "true" }),
     ]);
   }
-  return el("button.btn.sm.primary", { type: "button", text: "Sign in",
-    onclick: async () => { try { await signIn(); toast("Signed in"); } catch (e) { toast(e.message, "warn"); } } });
+  return el("button.btn.sm.primary", { type: "button", text: "Sign in", onclick: onSignInClick });
+}
+
+function onSignInClick(event) {
+  const button = event.currentTarget;
+  if (button) {
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+  }
+  signIn().then((user) => {
+    if (user) toast("Signed in");
+  }).catch((e) => {
+    toast((e && e.message) || "Sign-in did not finish.", "warn");
+    if (button && button.isConnected) {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+    }
+  });
 }
 
 function navButton(tab, className) {
@@ -646,8 +662,7 @@ function showGate(message) {
       brandLogo({ large: true, alt: "Jr Lions Lacrosse" }),
       el("h1", { text: "Jr Lions Lacrosse Run Book" }),
       el("p.muted", { text: message }),
-      el("button.btn.primary", { type: "button", text: "Sign in with Google",
-        onclick: async () => { try { await signIn(); } catch (e) { toast(e.message, "warn"); } } }),
+      el("button.btn.primary", { type: "button", text: "Sign in with Google", onclick: onSignInClick }),
     ]),
   ]));
 }
@@ -662,7 +677,14 @@ async function boot() {
   };
   if (mq.addEventListener) mq.addEventListener("change", onScheme);
   else if (mq.addListener) mq.addListener(onScheme);
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations()
+      .then((regs) => { for (const reg of regs) reg.unregister(); })
+      .catch(() => {});
+  }
   if (isConfigured) {
+    try { await whenAuthReady(); }
+    catch (e) { console.error(e); }
     onAuth(async (user) => {
       currentUser = user;
       if (REQUIRE_SIGN_IN && !user) { showGate("Please sign in to open the run book."); return; }

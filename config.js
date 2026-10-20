@@ -7,11 +7,14 @@
 // is editable from inside the app — no code changes required.
 // =============================================================================
 
-export const APP_VERSION = "2.2.0";
+export const APP_VERSION = "2.3.0";
 
 // ---- 1) FIREBASE CONNECTION -------------------------------------------------
 // Paste the values from your Firebase project here. Until you do, the app runs
 // in "On this device" mode (saved to this browser only). See README.md.
+// authDomain here stays the Firebase project host. On https://jrlionsrunbook.vercel.app
+// the app uses that page's host instead, so Google sign-in is first-party.
+// localhost and 127.0.0.1 keep the value below. See firebase.js and vercel.json.
 export const firebaseConfig = {
   apiKey: "AIzaSyB6shU_52JreyqeknmtZWj_asYhW4vc5w4",
   authDomain: "jrlionsrunbook.firebaseapp.com",
