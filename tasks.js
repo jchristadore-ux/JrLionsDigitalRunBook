@@ -15,6 +15,7 @@ import {
   el, clear, field, input, textarea, select, toast, openModal, closeModal,
   confirmDialog, fmtDate, fmtRelative, fmtMoney, parseMoney, todayISO,
   nextRecurrence, isEmail, isUrl, uid, usableWebsite, readableColor, brandLogo,
+  iconNamed, personMark,
 } from "./ui.js";
 import { STATUS_COLORS, PRIORITY_COLORS, RECURRENCE_OPTIONS } from "./config.js";
 import { Automation } from "./automation.js";
@@ -296,18 +297,21 @@ function taskRow(task, root) {
 
   const main = el("button.row-main", { type: "button", onclick: () => openTaskEditor(task) }, [
     el("div.row-title-line", {}, [
-      manualOrder ? el("span.grip", { title: "Drag to reorder", text: "⠿" }) : null,
+      manualOrder ? el("span.grip", { title: "Drag to reorder" }, [iconNamed("grip", "ico chip-ico")]) : null,
       el("span.row-title", { text: task.title || "(untitled)" }),
-      task.recurrence && task.recurrence !== "none" ? el("span.row-ico", { title: "Repeats", text: "🔁" }) : null,
+      task.recurrence && task.recurrence !== "none" ? el("span.row-ico", { title: "Repeats" }, [iconNamed("repeat", "ico chip-ico")]) : null,
       task.priority && task.priority !== "Medium" ? priorityChip(task.priority) : null,
     ]),
     el("div.row-meta", {}, [
       task.category ? el("span.tag.cat", { text: task.category }) : null,
       task.program ? el("span.tag", { text: task.program }) : null,
-      task.owner ? el("span.tag.owner", { text: "👤 " + task.owner }) : null,
-      task.dueDate ? el("span.tag.due" + (eff === "Overdue" ? ".due-over" : ""), { text: "📅 " + fmtDate(task.dueDate) + " · " + fmtRelative(task.dueDate) }) : null,
-      eff === "Blocked" ? el("span.tag.blocked-tag", { title: blockers(task).map((b) => b.title).join(", "), text: "⛔ Blocked" }) : null,
-      parseMoney(task.cost) != null ? el("span.tag.cost", { text: "💲 " + fmtMoney(task.cost) + (task.costCadence && task.costCadence !== "one-time" ? "/" + (task.costCadence === "monthly" ? "mo" : "yr") : "") }) : null,
+      task.owner ? el("span.tag.owner", {}, [personMark(task.owner), el("span", { text: task.owner })]) : null,
+      task.dueDate ? el("span.tag.due" + (eff === "Overdue" ? ".due-over" : ""), {}, [
+        iconNamed("calendar", "ico chip-ico"),
+        el("span", { text: `${fmtDate(task.dueDate)} · ${fmtRelative(task.dueDate)}` }),
+      ]) : null,
+      eff === "Blocked" ? el("span.tag.blocked-tag", { title: blockers(task).map((b) => b.title).join(", "), text: "Blocked" }) : null,
+      parseMoney(task.cost) != null ? el("span.tag.cost", { text: fmtMoney(task.cost) + (task.costCadence && task.costCadence !== "one-time" ? "/" + (task.costCadence === "monthly" ? "mo" : "yr") : "") }) : null,
       ...(task.tags || []).map((t) => el("span.tag.user", { text: "#" + t })),
     ]),
   ]);
@@ -321,8 +325,10 @@ function taskRow(task, root) {
     }) : null,
     quickStatus(task, root),
     el("button.icon-btn", { type: "button", title: "More actions",
-      "aria-label": `More actions for ${task.title || "task"}`, text: "⋯",
-      onclick: (e) => { e.stopPropagation(); openRowMenu(e.currentTarget, task, root); } }),
+      "aria-label": `More actions for ${task.title || "task"}`,
+      onclick: (e) => { e.stopPropagation(); openRowMenu(e.currentTarget, task, root); } }, [
+      iconNamed("more"),
+    ]),
   ]);
 
   row.appendChild(check); row.appendChild(main); row.appendChild(right);

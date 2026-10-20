@@ -14,7 +14,7 @@ import { Store } from "./firestore.js";
 import { Email } from "./email.js";
 import {
   el, clear, field, input, select, toast, openModal, closeModal,
-  confirmDialog, fmtDate, fmtDateTime, todayISO, uid, brandLogo,
+  confirmDialog, fmtDate, fmtDateTime, todayISO, uid, brandLogo, iconNamed,
 } from "./ui.js";
 
 const TRIGGER_LABELS = {
@@ -358,7 +358,7 @@ function openAutomationEditor(existing, root) {
   function renderActions() {
     clear(actionsHost);
     actions.forEach((act, idx) => actionsHost.appendChild(actionRow(act, idx)));
-    actionsHost.appendChild(el("button.btn.ghost.sm.add-action", { type: "button", text: "＋ Add action",
+    actionsHost.appendChild(el("button.btn.ghost.sm.add-action", { type: "button", text: "Add action",
       onclick: () => { actions.push({ type: "set_status", status: meta.statuses[0] }); renderActions(); } }));
   }
   function actionRow(act, idx) {
@@ -401,8 +401,10 @@ function openAutomationEditor(existing, root) {
     }
     return el("div.action-card", {}, [
       el("div.action-top", {}, [typeSel,
-        el("button.icon-btn.danger", { type: "button", title: "Remove action", "aria-label": "Remove action", text: "✕",
-          onclick: () => { actions.splice(idx, 1); if (!actions.length) actions.push({ type: "set_status", status: meta.statuses[0] }); renderActions(); } })]),
+        el("button.icon-btn.danger", { type: "button", title: "Remove action", "aria-label": "Remove action",
+          onclick: () => { actions.splice(idx, 1); if (!actions.length) actions.push({ type: "set_status", status: meta.statuses[0] }); renderActions(); } }, [
+          iconNamed("close"),
+        ])]),
       detail,
     ]);
   }

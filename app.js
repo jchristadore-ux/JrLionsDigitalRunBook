@@ -15,7 +15,7 @@ import { REQUIRE_SIGN_IN } from "./config.js";
 import {
   el, clear, field, input, select, toast, openModal, closeModal, confirmDialog,
   fmtDate, fmtDateTime, fmtRelative, fmtMoney, parseMoney, daysUntil, todayISO,
-  isModalOpen, uid, readableColor, brandLogo,
+  isModalOpen, uid, readableColor, brandLogo, svgIcon, iconNamed, googleMark, personMark,
 } from "./ui.js";
 import {
   renderTasks, openTaskEditor, statusOf, isOverdue, isBlocked, blockers,
@@ -47,21 +47,42 @@ function ownerIsMe(owner, me) {
 // ---------------------------------------------------------------------------
 // Layout
 // ---------------------------------------------------------------------------
-function icon(d) {
+function icon(d) { return svgIcon(d); }
+
+function helloLine() {
+  const hour = new Date().getHours();
+  const hello = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const fromAccount = currentUser && currentUser.displayName ? currentUser.displayName.split(" ")[0] : "";
+  const who = getMe() || fromAccount;
+  return who ? `${hello}, ${who}` : hello;
+}
+
+function progressRing(done, total) {
+  const pct = total ? done / total : 0;
+  const r = 26;
+  const circ = 2 * Math.PI * r;
   const ns = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(ns, "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("viewBox", "0 0 64 64");
+  svg.setAttribute("class", "ring");
   svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("class", "ico");
-  const p = document.createElementNS(ns, "path");
-  p.setAttribute("d", d);
-  p.setAttribute("fill", "none");
-  p.setAttribute("stroke", "currentColor");
-  p.setAttribute("stroke-width", "1.75");
-  p.setAttribute("stroke-linecap", "round");
-  p.setAttribute("stroke-linejoin", "round");
-  svg.appendChild(p);
-  return svg;
+  const track = document.createElementNS(ns, "circle");
+  track.setAttribute("cx", "32");
+  track.setAttribute("cy", "32");
+  track.setAttribute("r", String(r));
+  track.setAttribute("class", "ring-track");
+  const arc = document.createElementNS(ns, "circle");
+  arc.setAttribute("cx", "32");
+  arc.setAttribute("cy", "32");
+  arc.setAttribute("r", String(r));
+  arc.setAttribute("class", "ring-arc");
+  arc.setAttribute("stroke-dasharray", `${(circ * pct).toFixed(2)} ${circ.toFixed(2)}`);
+  svg.append(track, arc);
+  const label = total ? `${done} of ${total} complete` : "No tasks yet";
+  return el("div.ring-wrap", { role: "img", "aria-label": label, title: label }, [
+    svg,
+    el("span.ring-pct", { text: `${Math.round(pct * 100)}%` }),
+  ]);
 }
 
 function buildShell() {
@@ -84,7 +105,7 @@ function buildShell() {
   const topbar = el("header.topbar", {}, [
     brandLogo({ alt: "Jr Lions Lacrosse", plateClass: "header-logo" }),
     el("div.search-wrap", {}, [
-      el("span.search-ico", { text: "🔍", "aria-hidden": "true" }),
+      el("span.search-ico", { "aria-hidden": "true" }, [iconNamed("search")]),
       el("input.search", {
         id: "global-search", type: "search", placeholder: "Search tasks",
         "aria-label": "Search tasks",
@@ -215,12 +236,17 @@ function renderDashboard(root) {
       ? `${tasks.length} open tasks. Nothing is late or blocked.`
       : `${needs} thing${needs === 1 ? "" : "s"} to look at · ${tasks.length} open tasks`;
 
+  const done = tasks.filter((t) => t.status === "Completed").length;
   root.appendChild(el("div.section-head", {}, [
-    el("div", {}, [
-      el("h1.page-title", { text: "Today" }),
+    el("div.hello", {}, [
+      el("p.kicker", { text: "Today" }),
+      el("h1.page-title", { text: helloLine() }),
       el("p.page-sub", { text: summary }),
     ]),
-    el("button.btn.primary", { type: "button", text: "Add a task", title: "Add a task (n)", onclick: () => openTaskEditor(null) }),
+    el("div.head-actions", {}, [
+      progressRing(done, tasks.length),
+      el("button.btn.primary", { type: "button", text: "Add a task", title: "Add a task (n)", onclick: () => openTaskEditor(null) }),
+    ]),
   ]));
 
   // "Needs attention today" banner
@@ -243,10 +269,10 @@ function renderDashboard(root) {
 
   // Stat cards
   root.appendChild(el("div.stat-grid", {}, [
-    statCard("Late", overdue.length, readableColor("#e0413a"), () => { Object.assign(filters, { status: "Overdue", q: "" }); setActive("tasks"); }),
-    statCard("This week", dueThisWeek.length, readableColor("#e08a1e"), () => { Object.assign(filters, { status: "", q: "" }); setActive("tasks"); }),
-    statCard("Blocked", blocked.length, readableColor("#9b51e0"), () => { Object.assign(filters, { status: "Blocked", q: "" }); setActive("tasks"); }),
-    statCard("Mine", mine.length, readableColor("#1f9d8a"), () => { Object.assign(filters, { owner: me, status: "", q: "" }); setActive("tasks"); }),
+    statCard("Late", overdue.length, readableColor("#e0413a"), () => { Object.assign(filters, { status: "Overdue", q: "" }); setActive("tasks"); }, tasks.length),
+    statCard("This week", dueThisWeek.length, readableColor("#e08a1e"), () => { Object.assign(filters, { status: "", q: "" }); setActive("tasks"); }, tasks.length),
+    statCard("Blocked", blocked.length, readableColor("#9b51e0"), () => { Object.assign(filters, { status: "Blocked", q: "" }); setActive("tasks"); }, tasks.length),
+    statCard("Mine", mine.length, readableColor("#1f9d8a"), () => { Object.assign(filters, { owner: me, status: "", q: "" }); setActive("tasks"); }, tasks.length),
   ]));
 
   const cols = el("div.dash-cols");
@@ -285,7 +311,7 @@ function renderDashboard(root) {
     c.appendChild(el("div.card-head", {}, [el("h2", { text: "Automation problems" })]));
     if (!failures.length) c.appendChild(emptyMini("Every automation ran without a problem."));
     else failures.slice(0, 6).forEach((r) => c.appendChild(el("div.dash-line", {}, [
-      el("span.run-pill.danger", { text: "✕" }),
+      el("span.run-pill.danger", {}, [iconNamed("close", "ico chip-ico")]),
       el("span.dash-line-main", { title: r.error || "", text: r.automationName }),
       el("span.muted.small", { text: fmtRelative(String(r.at).slice(0, 10)) }),
     ])));
@@ -357,10 +383,12 @@ function renderDashboard(root) {
     else events.slice(0, 6).forEach((ev) => c.appendChild(el("div.dash-line", {}, [
       el("span.date-badge", { text: fmtDate(ev.date) }),
       el("span.dash-line-main", { text: ev.title }),
-      el("button.icon-btn.sm", { type: "button", text: "✕", title: `Remove ${ev.title}`,
+      el("button.icon-btn.sm", { type: "button", title: `Remove ${ev.title}`,
         "aria-label": `Remove ${ev.title}`, onclick: () => confirmDialog({
         title: "Remove event?", message: ev.title, confirmLabel: "Remove",
-        onConfirm: async () => { await Store.remove("events", ev.id); renderDashboard(root); } }) }),
+        onConfirm: async () => { await Store.remove("events", ev.id); renderDashboard(root); } }) }, [
+        iconNamed("close"),
+      ]),
     ])));
     cols.appendChild(c);
   }
@@ -368,14 +396,18 @@ function renderDashboard(root) {
   root.appendChild(cols);
 }
 
-const ACT_VERBS = { created: "＋ added", updated: "✎ edited", status: "↻ status", archived: "📦 archived", unarchived: "↩ restored", deleted: "🗑 deleted", recurred: "🔁 repeated" };
+const ACT_VERBS = { created: "Added", updated: "Edited", status: "Status", archived: "Archived", unarchived: "Restored", deleted: "Deleted", recurred: "Repeated" };
 function actVerb(a) { return ACT_VERBS[a] || a; }
 
 function attnPill(text, kind, onclick) { return el("button.attn-pill." + kind, { type: "button", text, onclick }); }
-function statCard(label, value, color, onclick) {
+function statCard(label, value, color, onclick, total) {
+  const pct = total ? Math.round((Number(value) / total) * 100) : 0;
   return el("button.stat-card", { type: "button", style: `--c:${color}`, onclick }, [
     el("div.stat-value", { text: String(value) }),
     el("div.stat-label", { text: label }),
+    el("span.stat-track", { "aria-hidden": "true" }, [
+      el("span.stat-fill", { style: `width:${value ? Math.max(pct, 8) : 0}%` }),
+    ]),
   ]);
 }
 function emptyMini(text) { return el("p.muted.small.empty-mini", { text }); }
@@ -572,10 +604,10 @@ function chipEditor(label, key) {
   values.forEach((v) => {
     chips.appendChild(el("span.edit-chip", {}, [
       el("span", { text: v }),
-      el("button.chip-x", { type: "button", title: `Remove ${v}`, "aria-label": `Remove ${v}`, text: "✕", onclick: async () => {
+      el("button.chip-x", { type: "button", title: `Remove ${v}`, "aria-label": `Remove ${v}`, onclick: async () => {
         await Store.setMeta({ [key]: values.filter((x) => x !== v) });
         toast(`Removed "${v}"`); renderActive();
-      } }),
+      } }, [iconNamed("close", "ico chip-ico")]),
     ]));
   });
   const adder = input({ placeholder: "Add…", onkeydown: async (e) => {
@@ -655,26 +687,31 @@ function appearanceControl() {
 function showGate(message, problem) {
   const app = document.getElementById("app");
   const existing = app && app.querySelector(".gate");
+  const want = problem ? "Try again" : "Sign in with Google";
   if (existing) {
     const err = existing.querySelector(".gate-error");
-    const button = existing.querySelector("button.btn.primary");
-    const want = problem ? "Try again" : "Sign in with Google";
+    const button = existing.querySelector("button.gate-signin");
+    const label = button ? button.textContent.replace(/\s+/g, " ").trim() : "";
     const sameError = problem ? !!(err && err.textContent === problem) : !err;
-    if (button && button.textContent === want && sameError) return;
+    if (button && label === want && sameError) return;
   }
   clear(app);
+  const button = el("button.btn.gate-signin" + (problem ? ".primary" : ".google"), {
+    type: "button",
+    onclick: onSignInClick,
+  }, problem
+    ? [el("span", { text: "Try again" })]
+    : [googleMark(), el("span", { text: "Sign in with Google" })]);
   app.appendChild(el("main.gate", {}, [
     el("div.gate-card", {}, [
       brandLogo({ large: true, alt: "Jr Lions Lacrosse" }),
-      el("h1", { text: "Jr Lions Lacrosse Run Book" }),
-      el("p.muted", { text: message }),
+      el("p.gate-kicker", { text: "Jr Lions Lacrosse" }),
+      el("h1", { text: "Welcome to the Jr Lions Run Book" }),
+      el("p.gate-sub", { text: message }),
       problem ? el("p.gate-error", { role: "alert", text: problem }) : null,
-      el("button.btn.primary", {
-        type: "button",
-        text: problem ? "Try again" : "Sign in with Google",
-        onclick: onSignInClick,
-      }),
+      button,
     ]),
+    el("p.gate-foot", { text: "For board members, coaches, and volunteers." }),
   ]));
 }
 
@@ -702,7 +739,7 @@ async function boot() {
   // getRedirectResult. A return from Google keeps the loading screen until
   // that result, an error, or the timeout.
   const pending = hasPendingRedirect();
-  const gateMessage = "Please sign in to open the run book.";
+  const gateMessage = "Tasks, automations, and team notes for the club, in one place.";
   if (REQUIRE_SIGN_IN && !pending) showGate(gateMessage);
 
   let problem = null;

@@ -7,7 +7,7 @@
 // is editable from inside the app — no code changes required.
 // =============================================================================
 
-export const APP_VERSION = "2.3.1";
+export const APP_VERSION = "2.4.0";
 
 // ---- 1) FIREBASE CONNECTION -------------------------------------------------
 // Paste the values from your Firebase project here. Until you do, the app runs

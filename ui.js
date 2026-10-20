@@ -33,6 +33,71 @@ export function el(spec, attrs = {}, children = []) {
   return node;
 }
 
+// Inline icons. Callers pass a single path so the UI stays consistent and
+// does not depend on emoji fonts.
+export function svgIcon(d, className = "ico") {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("class", className);
+  const p = document.createElementNS(ns, "path");
+  p.setAttribute("d", d);
+  p.setAttribute("fill", "none");
+  p.setAttribute("stroke", "currentColor");
+  p.setAttribute("stroke-width", "1.75");
+  p.setAttribute("stroke-linecap", "round");
+  p.setAttribute("stroke-linejoin", "round");
+  svg.appendChild(p);
+  return svg;
+}
+
+const NAMED_ICONS = {
+  close: "M6 6l12 12M18 6 6 18",
+  search: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-3.5-3.5",
+  more: "M5 12h.01M12 12h.01M19 12h.01",
+  repeat: "M17 2l4 4-4 4M3 12V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 12v3a4 4 0 0 1-4 4H3",
+  calendar: "M7 3v3M17 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z",
+  grip: "M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01",
+};
+
+export function iconNamed(name, className) {
+  return svgIcon(NAMED_ICONS[name] || NAMED_ICONS.close, className);
+}
+
+export function initials(name) {
+  const parts = String(name || "").trim().split(/[\s/]+/).filter(Boolean);
+  if (!parts.length) return "?";
+  const second = parts.length > 1 ? parts[1][0] : "";
+  return (parts[0][0] + second).toUpperCase();
+}
+
+export function personMark(name) {
+  return el("span.mini-avatar", { "aria-hidden": "true", title: name || "", text: initials(name) });
+}
+
+// Four-color mark used on the sign-in button. Decorative; the button name is text.
+export function googleMark() {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 18 18");
+  svg.setAttribute("class", "google-mark");
+  svg.setAttribute("aria-hidden", "true");
+  const parts = [
+    ["M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z", "#4285F4"],
+    ["M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z", "#34A853"],
+    ["M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z", "#FBBC05"],
+    ["M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z", "#EA4335"],
+  ];
+  for (const [d, fill] of parts) {
+    const p = document.createElementNS(ns, "path");
+    p.setAttribute("d", d);
+    p.setAttribute("fill", fill);
+    svg.appendChild(p);
+  }
+  return svg;
+}
+
 // Official mark. The plate stays light in dark mode so the green and gold read.
 // Resized WebP/PNG are preferred. The original PNG is the src fallback.
 export function brandLogo({ large = false, alt = "", plateClass = "" } = {}) {
@@ -219,7 +284,9 @@ export function toast(message, kind = "ok", actionLabel, onAction) {
     el("span.toast-msg", { text: message }),
     actionLabel ? el("button.toast-action", { type: "button", text: actionLabel,
       onclick: () => { try { onAction && onAction(); } finally { dismiss(); } } }) : null,
-    el("button.toast-close", { type: "button", "aria-label": "Dismiss", text: "✕", onclick: () => dismiss() }),
+    el("button.toast-close", { type: "button", "aria-label": "Dismiss", onclick: () => dismiss() }, [
+      iconNamed("close", "ico"),
+    ]),
   ]);
   function dismiss() { t.classList.add("leaving"); setTimeout(() => t.remove(), 200); }
   toastHost.appendChild(t);
@@ -240,7 +307,9 @@ export function openModal({ title, body, footer, width = 720, onClose }) {
   });
   const head = el("div.modal-head", {}, [
     el("h2.modal-title", { id: titleId, text: title || "Dialog" }),
-    el("button.icon-btn", { type: "button", "aria-label": "Close", text: "✕", onclick: () => closeModal() }),
+    el("button.icon-btn", { type: "button", "aria-label": "Close", onclick: () => closeModal() }, [
+      iconNamed("close", "ico"),
+    ]),
   ]);
   modal.appendChild(el("div.sheet-grabber", { "aria-hidden": "true" }));
   const content = el("div.modal-body");
