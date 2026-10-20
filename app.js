@@ -740,7 +740,12 @@ async function boot() {
   // that result, an error, or the timeout.
   const pending = hasPendingRedirect();
   const gateMessage = "Tasks, automations, and team notes for the club, in one place.";
-  if (REQUIRE_SIGN_IN && !pending) showGate(gateMessage);
+  if (pending) {
+    const sub = document.querySelector(".boot .gate-sub");
+    const button = document.querySelector(".boot button.gate-signin");
+    if (sub) sub.textContent = "Finishing sign-in…";
+    if (button) button.disabled = true;
+  } else if (REQUIRE_SIGN_IN) showGate(gateMessage);
 
   let problem = null;
   const stopWaiting = setTimeout(() => {

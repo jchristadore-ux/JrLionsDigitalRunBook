@@ -12,7 +12,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 - The sign-in screen is a full-bleed green field with a soft net texture, a
   frosted card, a gold accent, and a Google sign-in button. Motion is a short
   rise and is skipped when the device asks for reduced motion. The first
-  paint already includes the welcome heading, so it does not wait on a script.
+  paint already includes the welcome heading and the button, so the card does
+  not jump when the script connects sign-in.
 - Home opens with a greeting, a completion ring, and thin stat bars. Task rows
   use due-date chips and owner initials. Tabs, sheets, and presses are quieter.
   Interface icons are inline SVG.
