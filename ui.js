@@ -36,23 +36,26 @@ export function el(spec, attrs = {}, children = []) {
 // Official mark. The plate stays light in dark mode so the green and gold read.
 // Resized WebP/PNG are preferred. The original PNG is the src fallback.
 export function brandLogo({ large = false, alt = "", plateClass = "" } = {}) {
+  // Source has to be in the picture before src is set. Otherwise the browser
+  // starts the original PNG and then also fetches the resized asset.
   const img = el("img.brand-logo", {
-    src: "brand/jrlions-logo.png",
     alt,
     width: "480",
     height: "272",
     decoding: "async",
-    srcset: "brand/jrlions-logo-240.png 240w, brand/jrlions-logo-480.png 480w",
-    sizes: "240px",
   });
-  if (large) img.setAttribute("fetchpriority", "high");
   const source = el("source", {
     type: "image/webp",
     srcset: "brand/jrlions-logo-240.webp 240w, brand/jrlions-logo-480.webp 480w",
     sizes: "240px",
   });
+  const picture = el("picture", {}, [source, img]);
+  img.setAttribute("sizes", "240px");
+  img.setAttribute("srcset", "brand/jrlions-logo-240.png 240w, brand/jrlions-logo-480.png 480w");
+  img.setAttribute("src", "brand/jrlions-logo.png");
+  if (large) img.setAttribute("fetchpriority", "high");
   const plate = "span.logo-plate" + (large ? ".lg" : "") + (plateClass ? "." + plateClass : "");
-  return el(plate, {}, [el("picture", {}, [source, img])]);
+  return el(plate, {}, [picture]);
 }
 
 export function escapeHtml(s) {
